@@ -5,13 +5,22 @@ let slackApp: App | null = null;
 export function getSlackApp(): App {
   if (!slackApp) {
     const token = process.env.SLACK_BOT_TOKEN;
-    const signingSecret = process.env.SLACK_SIGNING_SECRET;
-    if (!token || !signingSecret) {
-      throw new Error("SLACK_BOT_TOKEN and SLACK_SIGNING_SECRET must be set");
+    const appToken = process.env.SLACK_APP_TOKEN;
+    if (!token || !appToken) {
+      throw new Error("SLACK_BOT_TOKEN and SLACK_APP_TOKEN must be set");
     }
-    slackApp = new App({ token, signingSecret, socketMode: false });
+    slackApp = new App({ token, appToken, socketMode: true });
   }
   return slackApp;
+}
+
+/**
+ * Start the Slack app's Socket Mode connection.
+ */
+export async function startSlackApp(): Promise<void> {
+  const app = getSlackApp();
+  await app.start();
+  console.log("[slack] Socket Mode connected");
 }
 
 /**

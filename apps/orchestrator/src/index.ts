@@ -3,7 +3,7 @@ import express, { type Express } from "express";
 import { loadBlueprint } from "./config.js";
 import { getDb } from "./db.js";
 import { handleLinearWebhook } from "./webhooks/linear.js";
-import { getSlackApp } from "./slack/app.js";
+import { getSlackApp, startSlackApp } from "./slack/app.js";
 import { registerSlackHandlers } from "./slack/commands.js";
 import { startPoller } from "./poller.js";
 import { handleTriageComplete, handleJobComplete } from "./pipeline.js";
@@ -27,12 +27,13 @@ console.log(`[orchestrator] Blueprint loaded (version ${blueprint.version})`);
 getDb();
 console.log("[orchestrator] Database initialized");
 
-// Initialize Slack (gracefully skip if env vars missing)
+// Initialize Slack via Socket Mode (gracefully skip if env vars missing)
 try {
   const slackApp = getSlackApp();
   registerSlackHandlers(slackApp);
-  app.use("/api/slack", (slackApp as any).receiver);
-  console.log("[orchestrator] Slack initialized");
+  startSlackApp().catch((err) => {
+    console.error("[orchestrator] Slack Socket Mode failed:", err);
+  });
 } catch (err) {
   console.warn("[orchestrator] Slack disabled:", (err as Error).message);
 }
