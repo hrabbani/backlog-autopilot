@@ -62,3 +62,11 @@ export function getMetrics(): {
 
   return row;
 }
+
+export function getConfigValue(key: string): string | undefined {
+  const db = getDb();
+  const row = db
+    .prepare("SELECT value FROM config_store WHERE key = @key")
+    .get({ key }) as { value: string } | undefined;
+  return row?.value;
+}

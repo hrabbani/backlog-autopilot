@@ -1,10 +1,36 @@
 import fs from "node:fs";
 import path from "node:path";
 import { FileCode, BookOpen } from "lucide-react";
+import { getConfigValue } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-export default function ConfigPage() {
+async function fetchRoutingRules(): Promise<string> {
+  const noteId = getConfigValue("routing_rules_note_id");
+  const orgId = process.env.DEVIN_ORG_ID;
+  const apiKey = process.env.DEVIN_API_KEY;
+
+  if (!noteId || !orgId || !apiKey) {
+    return "(Run setup first to create the routing rules Knowledge note)";
+  }
+
+  try {
+    const res = await fetch(
+      `https://api.devin.ai/v3/organizations/${orgId}/knowledge/notes/${noteId}`,
+      {
+        headers: { Authorization: `Bearer ${apiKey}` },
+        next: { revalidate: 30 },
+      }
+    );
+    if (!res.ok) return `(Failed to fetch: ${res.status})`;
+    const note = (await res.json()) as { body: string };
+    return note.body;
+  } catch {
+    return "(Could not reach Devin API)";
+  }
+}
+
+export default async function ConfigPage() {
   const blueprintPath = path.resolve(
     process.cwd(),
     "../../config/blueprint.yaml"
@@ -16,7 +42,7 @@ export default function ConfigPage() {
     // file absent in this environment
   }
 
-  const routingRules = "Loading routing rules from Devin Knowledge...";
+  const routingRules = await fetchRoutingRules();
 
   return (
     <div className="p-8">
