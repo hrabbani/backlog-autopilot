@@ -370,9 +370,11 @@ export async function dispatchJob(
     issue_id: issueId,
   });
 
+  const issueInfo = getIssueInfo(issueId);
+
   logEvent({
     issue_id: issueId,
-    issue_title: "",
+    issue_title: issueInfo.title,
     action: "job_started",
     path: "path_1_autofix",
     confidence: triage.confidence,
@@ -383,6 +385,37 @@ export async function dispatchJob(
     pr_url: null,
     metadata: null,
   });
+
+  // Notify team channel that a fix is in progress
+  const blueprint = loadBlueprint();
+  const teamChannel =
+    blueprint.notifications.team_channels[triage.responsible_team] ??
+    blueprint.notifications.log_channel;
+
+  await postMessage({
+    channel: teamChannel,
+    text: `Devin is working on a fix for ${issueId}`,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `*Devin is working on a fix for <${issueInfo.url}|${issueId}>*${issueInfo.title ? ` — ${issueInfo.title}` : ""}\n\nConfidence: ${(triage.confidence * 100).toFixed(0)}% | Complexity: ${triage.complexity}\n<${session.url}|Watch Devin work on this fix>`,
+        },
+      },
+    ],
+  });
+
+  await postLogMessage(
+    blueprint.notifications.log_channel,
+    buildLogOneLiner({
+      issueId,
+      issueTitle: issueInfo.title,
+      issueUrl: issueInfo.url,
+      action: "Fix started",
+      detail: `<${session.url}|View session>`,
+    })
+  );
 
   console.log(
     `[pipeline] Fix session created for ${issueId}: ${session.session_id}`
