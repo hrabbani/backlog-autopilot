@@ -1,0 +1,15 @@
+{
+  "name": "backlog-autopilot",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:orchestrator": "bun --filter orchestrator dev",
+    "dev:control-plane": "bun --filter control-plane dev",
+    "build": "bun --filter '*' build",
+    "setup": "bun --filter orchestrator setup",
+    "demo:trigger": "bun --filter orchestrator demo:trigger"
+  }
+}
