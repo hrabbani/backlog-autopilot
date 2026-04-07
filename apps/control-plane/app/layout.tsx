@@ -15,6 +15,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
+      <head>
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+        />
+      </head>
       <body className="bg-devin-bg-main">
         <nav className="border-b border-devin-border px-8 py-3">
           <div className="max-w-7xl mx-auto flex items-center gap-8">
