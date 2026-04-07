@@ -262,24 +262,7 @@ export async function handleTriageComplete(params: {
     }
 
     case "path_3_clarification": {
-      logEvent({
-        issue_id,
-        issue_title: issueInfo.title,
-        action: "clarification_requested",
-        path: "path_3_clarification",
-        confidence: triage.confidence,
-        routing_rule_applied: null,
-        responsible_team: triage.responsible_team,
-        devin_session_id: devin_session_id,
-        devin_session_url: session.url,
-        pr_url: null,
-        metadata: {
-          reason: decision.reason,
-          question: triage.clarification_question,
-        },
-      });
-
-      await postWithThread({
+      const clarificationTs = await postWithThread({
         channel: teamChannel,
         text: `Clarification needed: ${issueInfo.title}`,
         blocks: buildTriageMainBlocks({
@@ -294,6 +277,25 @@ export async function handleTriageComplete(params: {
           triage,
           sessionUrl: session.url,
         }),
+      });
+
+      logEvent({
+        issue_id,
+        issue_title: issueInfo.title,
+        action: "clarification_requested",
+        path: "path_3_clarification",
+        confidence: triage.confidence,
+        routing_rule_applied: null,
+        responsible_team: triage.responsible_team,
+        devin_session_id: devin_session_id,
+        devin_session_url: session.url,
+        pr_url: null,
+        metadata: {
+          reason: decision.reason,
+          question: triage.clarification_question,
+          message_ts: clarificationTs,
+          channel: teamChannel,
+        },
       });
 
       await postLogMessage(
@@ -385,7 +387,7 @@ export async function dispatchJob(
 
   const devin = getDevinClient();
   const session = await devin.createSession({
-    prompt: `Fix this issue:\n\nIdentifier: ${issueId}\nRoot cause: ${triage.root_cause_hypothesis}\nSuggested approach: ${triage.suggested_approach}\nAffected files: ${triage.affected_files.join(", ")}\nAffected packages: ${triage.affected_packages.join(", ")}\n\nAfter creating the PR, test your changes and record a video. Include the video in the PR description.`,
+    prompt: `Fix this issue:\n\nIdentifier: ${issueId}\nRoot cause: ${triage.root_cause_hypothesis}\nSuggested approach: ${triage.suggested_approach}\nAffected files: ${triage.affected_files.join(", ")}\nAffected packages: ${triage.affected_packages.join(", ")}\n\nIMPORTANT: Name your branch "${issueId.toLowerCase()}-fix" so Linear auto-links the PR.\n\nAfter creating the PR, test your changes and record a video. Include the video in the PR description.`,
     playbook_id: jobPlaybookId,
     tags: ["job", issueId],
     repos: ["hrabbani/tailored"],
