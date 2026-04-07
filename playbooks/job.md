@@ -22,6 +22,7 @@ You are fixing a backlog issue for the Tailored project. You have been given the
 
 ## Advice
 
+- Environment secrets (ANTHROPIC_API_KEY, SUPABASE_URL, etc.) are available via Devin Secrets. If a required env var is missing, skip the test that needs it and note it in the PR — do NOT ask for the key or block on it.
 - This is a Bun monorepo. Use `bun` for all commands.
 - To run the web app: `bun run dev:web` (port 3000)
 - To run the demo site: `bun run dev:demo` (port 3001)
