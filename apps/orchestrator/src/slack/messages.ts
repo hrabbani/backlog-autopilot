@@ -1,5 +1,32 @@
 import type { TriageOutput } from "@backlog-autopilot/shared";
 
+/**
+ * Human-friendly labels for policy block reasons and other internal keys.
+ */
+export function humanize(key: string): string {
+  const map: Record<string, string> = {
+    requires_product_decision: "Requires a product decision",
+    "label:compliance": "Tagged as compliance-sensitive",
+    "label:auth": "Tagged as auth-sensitive",
+    "label:billing": "Tagged as billing-sensitive",
+  };
+
+  if (map[key]) return map[key];
+
+  // path:supabase/migrations/* → "Touches supabase/migrations"
+  if (key.startsWith("path:")) {
+    const p = key.slice(5).replace("/*", "");
+    return `Touches ${p}`;
+  }
+
+  // label:foo → "Tagged as foo"
+  if (key.startsWith("label:")) {
+    return `Tagged as ${key.slice(6)}`;
+  }
+
+  return key.replace(/_/g, " ");
+}
+
 export function buildTriageBriefBlocks(params: {
   issueId: string;
   issueTitle: string;
@@ -183,7 +210,7 @@ export function buildPolicyBlockBlocks(params: {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*Policy Block:* This issue touches \`${params.blockedBy}\`. Per policy, it requires manual review. Devin's triage brief above should help with the investigation.`,
+        text: `*Policy Block:* ${humanize(params.blockedBy)}. Per policy, this requires manual review. Devin's triage brief above should help with the investigation.`,
       },
     },
   ];

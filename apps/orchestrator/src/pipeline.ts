@@ -11,6 +11,7 @@ import {
   buildPolicyBlockBlocks,
   buildLogOneLiner,
   buildTriageBriefBlocks,
+  humanize,
 } from "./slack/messages.js";
 import {
   triageJsonSchema,
@@ -71,7 +72,7 @@ export async function triggerTriage(issue: {
         issueTitle: issue.title,
         issueUrl: issue.url,
         action: "Policy blocked",
-        detail: `Blocked by ${policyBlock}`,
+        detail: humanize(policyBlock),
       })
     );
     return;
@@ -327,7 +328,7 @@ export async function handleTriageComplete(params: {
           issueTitle: issueInfo.title,
           issueUrl: issueInfo.url,
           action: "Policy blocked",
-          detail: (decision as Extract<TriageDecision, { path: "path_4_policy_block" }>).blocked_by,
+          detail: humanize((decision as Extract<TriageDecision, { path: "path_4_policy_block" }>).blocked_by),
         })
       );
       break;
