@@ -30,7 +30,7 @@ export const TriageOutputSchema = z.object({
   clarification_question: z.string().nullable(),
   requires_product_decision: z.boolean(),
   safe_to_autofix: z.boolean(),
-  responsible_team: z.string(),
+  responsible_team: z.enum(["team-ai", "team-platform", "team-frontend", "team-sdk"]),
   due_date_status: DueDateStatusSchema,
 });
 
@@ -55,7 +55,7 @@ export const triageJsonSchema = {
     clarification_question: { type: ["string", "null"] },
     requires_product_decision: { type: "boolean" },
     safe_to_autofix: { type: "boolean" },
-    responsible_team: { type: "string" },
+    responsible_team: { type: "string", enum: ["team-ai", "team-platform", "team-frontend", "team-sdk"] },
     due_date_status: {
       type: "string",
       enum: ["overdue", "approaching", "on_track", "no_due_date"],

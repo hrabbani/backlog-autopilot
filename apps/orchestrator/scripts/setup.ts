@@ -110,23 +110,25 @@ async function main() {
   // 4. Create or update team directory Knowledge note
   const teamDirectory = `# Team Directory
 
-## AI Team
-- Slack channel: #team-ai-pr-reviews
+IMPORTANT: When filling in the "responsible_team" field in the structured output, you MUST use the exact team ID (e.g., "team-ai", "team-platform"). Do NOT use the display name. Always assign exactly ONE team.
+
+## team-ai (AI Team)
+- Slack channel: #team-ai
 - Owns: packages/ai
 - Focus: AI research, personalization logic, zone generation
 
-## Platform Team
-- Slack channel: #team-platform-pr-reviews
+## team-platform (Platform Team)
+- Slack channel: #team-platform
 - Owns: apps/worker, packages/shared, supabase/migrations
 - Focus: Job processing, infrastructure, database, shared types
 
-## Frontend Team
-- Slack channel: #team-frontend-pr-reviews
+## team-frontend (Frontend Team)
+- Slack channel: #team-frontend
 - Owns: apps/web, apps/demo
 - Focus: Dashboard UI, demo site, user-facing features
 
-## SDK Team
-- Slack channel: #team-sdk-pr-reviews
+## team-sdk (SDK Team)
+- Slack channel: #team-sdk
 - Owns: packages/sdk
 - Focus: React SDK, embed script, customer integrations
 `;
