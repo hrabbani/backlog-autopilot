@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Link from "next/link";
-import { Activity, Settings, BarChart3 } from "lucide-react";
+import { Sidebar } from "@/components/sidebar";
 
 export const metadata: Metadata = {
   title: "Backlog Autopilot — Control Plane",
@@ -21,47 +20,10 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
         />
       </head>
-      <body className="bg-devin-bg-main">
-        <nav className="border-b border-devin-border px-8 py-3">
-          <div className="max-w-7xl mx-auto flex items-center gap-8">
-            <span className="font-semibold text-[14px] text-devin-text-primary">
-              Backlog Autopilot
-            </span>
-            <div className="flex gap-1">
-              <NavLink href="/" icon={<Activity size={14} />}>
-                Audit Trail
-              </NavLink>
-              <NavLink href="/config" icon={<Settings size={14} />}>
-                Configuration
-              </NavLink>
-              <NavLink href="/metrics" icon={<BarChart3 size={14} />}>
-                Metrics
-              </NavLink>
-            </div>
-          </div>
-        </nav>
-        {children}
+      <body className="bg-devin-bg-main flex h-screen overflow-hidden">
+        <Sidebar />
+        <main className="flex-1 overflow-y-auto">{children}</main>
       </body>
     </html>
-  );
-}
-
-function NavLink({
-  href,
-  icon,
-  children,
-}: {
-  href: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-medium text-devin-text-secondary hover:text-devin-text-primary hover:bg-devin-hover transition-colors"
-    >
-      {icon}
-      {children}
-    </Link>
   );
 }
