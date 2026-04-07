@@ -1,0 +1,42 @@
+version: 1
+
+intake:
+  sources:
+    - type: linear_webhook
+      project: "TAIL"
+      events: ["issue.created", "issue.updated"]
+    - type: scheduled_sweep
+      cron: "0 9 * * 1-5"
+      sort_by: ["due_date", "priority", "age"]
+
+triage:
+  playbook_id: "PLACEHOLDER"
+  knowledge_ids: ["PLACEHOLDER"]
+  auto_dispatch_threshold:
+    min_confidence: 0.85
+    max_complexity: "medium"
+    requires: ["safe_to_autofix", "!requires_product_decision"]
+  approval_threshold:
+    min_confidence: 0.5
+  below_approval:
+    action: "clarify"
+
+policy:
+  blocked_paths:
+    - "supabase/migrations/*"
+    - "packages/ai/src/prompts/*"
+  blocked_labels: ["compliance", "auth", "billing"]
+
+job:
+  playbook_id: "PLACEHOLDER"
+  max_ci_attempts: 2
+  evidence:
+    ui_changes: "video"
+    backend_changes: "test_logs"
+
+notifications:
+  team_channels:
+    team-ai: "#team-ai-pr-reviews"
+    team-platform: "#team-platform-pr-reviews"
+    team-frontend: "#team-frontend-pr-reviews"
+  log_channel: "#auto-backlog-updates"

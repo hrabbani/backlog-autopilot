@@ -32,7 +32,7 @@ export const BlueprintSchema = z.object({
     blocked_paths: z.array(z.string()),
     blocked_labels: z.array(z.string()),
   }),
-  fix: z.object({
+  job: z.object({
     playbook_id: z.string(),
     max_ci_attempts: z.number(),
     evidence: z.object({
