@@ -213,16 +213,6 @@ export async function handleTriageComplete(params: {
         metadata: { reason: decision.reason },
       });
       await dispatchJob(issue_id, triage, session.url);
-      await postLogMessage(
-        blueprint.notifications.log_channel,
-        buildLogOneLiner({
-          issueId: issue_id,
-          issueTitle: issueInfo.title,
-          issueUrl: issueInfo.url,
-          action: "I auto-dispatched a fix",
-          detail: `confidence=${(triage.confidence * 100).toFixed(0)}%`,
-        })
-      );
       break;
 
     case "path_2_approval": {
