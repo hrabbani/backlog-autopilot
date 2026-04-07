@@ -154,10 +154,16 @@ export function buildPRNotification(params: {
 
 export function buildLogOneLiner(params: {
   issueId: string;
+  issueTitle?: string;
+  issueUrl?: string;
   action: string;
   detail: string;
 }): string {
-  return `*${params.issueId}* — ${params.action}: ${params.detail}`;
+  const issueLink = params.issueUrl
+    ? `<${params.issueUrl}|${params.issueId}>`
+    : params.issueId;
+  const title = params.issueTitle ? ` — ${params.issueTitle}` : "";
+  return `*${issueLink}*${title} · ${params.action}: ${params.detail}`;
 }
 
 export function buildPolicyBlockBlocks(params: {

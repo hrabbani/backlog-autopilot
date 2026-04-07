@@ -19,6 +19,20 @@ import {
 } from "@backlog-autopilot/shared";
 
 /**
+ * Look up issue title from the ledger (from the triage_started event).
+ */
+function getIssueInfo(issueId: string): { title: string; url: string } {
+  const row = getDb()
+    .prepare(
+      "SELECT issue_title FROM ledger_events WHERE issue_id = @issueId AND action = 'triage_started' ORDER BY timestamp DESC LIMIT 1"
+    )
+    .get({ issueId }) as { issue_title: string } | undefined;
+  // Construct Linear URL from identifier (e.g., TAI-5 → https://linear.app/.../TAI-5)
+  const url = `https://linear.app/tailored-sdk/issue/${issueId}`;
+  return { title: row?.issue_title ?? "", url };
+}
+
+/**
  * Trigger triage for a Linear issue.
  */
 export async function triggerTriage(issue: {
@@ -54,6 +68,8 @@ export async function triggerTriage(issue: {
       blueprint.notifications.log_channel,
       buildLogOneLiner({
         issueId: issue.identifier,
+        issueTitle: issue.title,
+        issueUrl: issue.url,
         action: "Policy blocked",
         detail: `Blocked by ${policyBlock}`,
       })
@@ -119,6 +135,8 @@ export async function triggerTriage(issue: {
     blueprint.notifications.log_channel,
     buildLogOneLiner({
       issueId: issue.identifier,
+      issueTitle: issue.title,
+      issueUrl: issue.url,
       action: "Triage started",
       detail: `<${session.url}|View session>`,
     })
@@ -155,6 +173,7 @@ export async function handleTriageComplete(params: {
   const triage = parseResult.data;
   const devin = getDevinClient();
   const session = await devin.getSession(devin_session_id);
+  const issueInfo = getIssueInfo(issue_id);
 
   logEvent({
     issue_id,
@@ -198,6 +217,8 @@ export async function handleTriageComplete(params: {
         blueprint.notifications.log_channel,
         buildLogOneLiner({
           issueId: issue_id,
+          issueTitle: issueInfo.title,
+          issueUrl: issueInfo.url,
           action: "Auto-dispatched fix",
           detail: `confidence=${(triage.confidence * 100).toFixed(0)}%`,
         })
@@ -233,6 +254,8 @@ export async function handleTriageComplete(params: {
         blueprint.notifications.log_channel,
         buildLogOneLiner({
           issueId: issue_id,
+          issueTitle: issueInfo.title,
+          issueUrl: issueInfo.url,
           action: "Awaiting approval",
           detail: `in ${teamChannel}`,
         })
@@ -260,6 +283,8 @@ export async function handleTriageComplete(params: {
         blueprint.notifications.log_channel,
         buildLogOneLiner({
           issueId: issue_id,
+          issueTitle: issueInfo.title,
+          issueUrl: issueInfo.url,
           action: "Clarification requested",
           detail: triage.clarification_question ?? "needs more info",
         })
@@ -299,6 +324,8 @@ export async function handleTriageComplete(params: {
         blueprint.notifications.log_channel,
         buildLogOneLiner({
           issueId: issue_id,
+          issueTitle: issueInfo.title,
+          issueUrl: issueInfo.url,
           action: "Policy blocked",
           detail: (decision as Extract<TriageDecision, { path: "path_4_policy_block" }>).blocked_by,
         })
@@ -444,6 +471,8 @@ export async function handleJobComplete(params: {
       blueprint.notifications.log_channel,
       buildLogOneLiner({
         issueId: params.issue_id,
+        issueTitle: getIssueInfo(params.issue_id).title,
+        issueUrl: getIssueInfo(params.issue_id).url,
         action: "PR opened",
         detail: `<${prUrl}|View PR>, review in ${prChannel}`,
       })
