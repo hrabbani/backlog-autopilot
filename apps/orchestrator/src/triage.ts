@@ -75,24 +75,13 @@ export function makeDecision(triage: TriageOutput): TriageDecision {
     };
   }
 
-  // Check confidence thresholds
-  const { auto_dispatch_threshold, approval_threshold } = blueprint.triage;
-
-  if (triage.confidence < approval_threshold.min_confidence) {
-    return {
-      path: "path_3_clarification",
-      reason: `Confidence too low (${triage.confidence} < ${approval_threshold.min_confidence})`,
-    };
-  }
-
   // Check auto-dispatch eligibility
+  const { auto_dispatch_threshold } = blueprint.triage;
   const complexityOrder = { small: 0, medium: 1, large: 2 };
   const maxComplexity =
     complexityOrder[auto_dispatch_threshold.max_complexity];
   const issueComplexity = complexityOrder[triage.complexity];
 
-  const meetsConfidence =
-    triage.confidence >= auto_dispatch_threshold.min_confidence;
   const meetsComplexity = issueComplexity <= maxComplexity;
   const meetsRequirements = auto_dispatch_threshold.requires.every((req) => {
     if (req.startsWith("!")) {
@@ -103,17 +92,17 @@ export function makeDecision(triage: TriageOutput): TriageDecision {
     return !!triage[field];
   });
 
-  if (meetsConfidence && meetsComplexity && meetsRequirements) {
+  if (meetsComplexity && meetsRequirements) {
     return {
       path: "path_1_autofix",
-      reason: `Auto-dispatch: confidence=${triage.confidence}, complexity=${triage.complexity}, safe_to_autofix=${triage.safe_to_autofix}`,
+      reason: `Auto-dispatch: complexity=${triage.complexity}, safe_to_autofix=${triage.safe_to_autofix}`,
     };
   }
 
   // Default: approval required
   return {
     path: "path_2_approval",
-    reason: `Approval needed: confidence=${triage.confidence}, complexity=${triage.complexity}, category=${triage.issue_category}`,
+    reason: `Approval needed: complexity=${triage.complexity}, category=${triage.issue_category}`,
   };
 }
 

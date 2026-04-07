@@ -114,7 +114,7 @@ export function buildTriageDetailBlocks(params: {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*Team:* ${triage.responsible_team} · *Confidence:* ${(triage.confidence * 100).toFixed(0)}% · *Complexity:* ${triage.complexity}`,
+        text: `*Team:* ${triage.responsible_team} · *Complexity:* ${triage.complexity}`,
       },
     },
     {

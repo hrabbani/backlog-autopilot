@@ -13,13 +13,8 @@ triage:
   playbook_id: "PLACEHOLDER"
   knowledge_ids: ["PLACEHOLDER"]
   auto_dispatch_threshold:
-    min_confidence: 0.85
     max_complexity: "medium"
     requires: ["safe_to_autofix", "!requires_product_decision"]
-  approval_threshold:
-    min_confidence: 0.5
-  below_approval:
-    action: "clarify"
 
 policy:
   blocked_paths:

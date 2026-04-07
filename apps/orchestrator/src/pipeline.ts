@@ -224,7 +224,7 @@ export async function handleTriageComplete(params: {
           issueId: issue_id,
           issueTitle: issueInfo.title,
           issueUrl: issueInfo.url,
-          summary: `I triaged this ${triage.complexity} ${triage.issue_category} at ${(triage.confidence * 100).toFixed(0)}% confidence. ${triage.root_cause_hypothesis.split('.')[0]}.`,
+          summary: `I triaged this ${triage.complexity} ${triage.issue_category}. ${triage.root_cause_hypothesis.split('.')[0]}.`,
           buttons: true,
         }),
         threadText: `Triage details for ${issue_id}`,
@@ -436,7 +436,7 @@ export async function dispatchJob(
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `*I'm working on a fix for <${issueInfo.url}|${issueId}>*${issueInfo.title ? ` — ${issueInfo.title}` : ""}\n\nConfidence: ${(triage.confidence * 100).toFixed(0)}% | Complexity: ${triage.complexity}\n<${session.url}|Follow along as I work on this>`,
+          text: `*I'm working on a fix for <${issueInfo.url}|${issueId}>*${issueInfo.title ? ` — ${issueInfo.title}` : ""}\n\nComplexity: ${triage.complexity}\n<${session.url}|Follow along as I work on this>`,
         },
       },
     ],

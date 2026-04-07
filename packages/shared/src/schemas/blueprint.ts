@@ -17,15 +17,8 @@ export const BlueprintSchema = z.object({
     playbook_id: z.string(),
     knowledge_ids: z.array(z.string()),
     auto_dispatch_threshold: z.object({
-      min_confidence: z.number(),
       max_complexity: z.enum(["small", "medium", "large"]),
       requires: z.array(z.string()),
-    }),
-    approval_threshold: z.object({
-      min_confidence: z.number(),
-    }),
-    below_approval: z.object({
-      action: z.enum(["clarify", "skip"]),
     }),
   }),
   policy: z.object({
