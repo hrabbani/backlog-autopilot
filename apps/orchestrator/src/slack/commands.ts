@@ -1,5 +1,8 @@
 import type { App } from "@slack/bolt";
-import { getDigest } from "../ledger.js";
+import { getDigest, logEvent } from "../ledger.js";
+import { getDb } from "../db.js";
+import { dispatchJob } from "../pipeline.js";
+import { TriageOutputSchema } from "@backlog-autopilot/shared";
 
 /**
  * Register all Slack command and action handlers.
@@ -73,6 +76,40 @@ export function registerSlackHandlers(app: App): void {
       replace_original: false,
     });
 
+    // Look up triage output from ledger
+    const triageEvent = getDb()
+      .prepare(
+        "SELECT metadata, devin_session_url FROM ledger_events WHERE issue_id = @issueId AND action = 'triage_completed' ORDER BY timestamp DESC LIMIT 1"
+      )
+      .get({ issueId: payload.issue_id }) as { metadata: string; devin_session_url: string } | undefined;
+
+    if (triageEvent?.metadata) {
+      const meta = JSON.parse(triageEvent.metadata);
+      const parseResult = TriageOutputSchema.safeParse(meta.triage_output);
+      if (parseResult.success) {
+        logEvent({
+          issue_id: payload.issue_id,
+          issue_title: "",
+          action: "approval_granted",
+          path: "path_2_approval",
+          confidence: parseResult.data.confidence,
+          routing_rule_applied: null,
+          responsible_team: parseResult.data.responsible_team,
+          devin_session_id: null,
+          devin_session_url: null,
+          pr_url: null,
+          metadata: { approved_by: userId },
+        });
+
+        dispatchJob(
+          payload.issue_id,
+          parseResult.data,
+          triageEvent.devin_session_url ?? ""
+        ).catch((err) => {
+          console.error(`[slack] Failed to dispatch job for ${payload.issue_id}:`, err);
+        });
+      }
+    }
   });
 
   // I'll Handle This button
@@ -92,6 +129,19 @@ export function registerSlackHandlers(app: App): void {
       replace_original: false,
     });
 
+    logEvent({
+      issue_id: payload.issue_id,
+      issue_title: "",
+      action: "human_claimed",
+      path: "path_2_approval",
+      confidence: null,
+      routing_rule_applied: null,
+      responsible_team: null,
+      devin_session_id: null,
+      devin_session_url: null,
+      pr_url: null,
+      metadata: { claimed_by: userId },
+    });
   });
 
   // Edit Scope button
