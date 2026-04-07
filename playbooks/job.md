@@ -9,10 +9,10 @@ You are fixing a backlog issue for the Tailored project. You have been given the
 3. Implement the fix following the suggested approach, or adjust if you find a better solution.
 4. Run lint checks before committing: check for TypeScript errors with `bunx tsc --noEmit`.
 5. If tests exist for the affected area, run them. If no tests exist, write a minimal test if practical.
-6. Commit your changes with a clear commit message referencing the issue.
-7. Push your branch and create a pull request.
-8. In the PR description, include: what was wrong, what you changed, and how to verify.
-9. After creating the PR, test your changes by running the app locally and verify the fix works. Record a video of you testing the fix and include it in the PR description.
+6. Test your changes by running the app locally and verify the fix works. Record a video of you testing the fix.
+7. Commit your changes with a clear commit message referencing the issue.
+8. Push your branch and create a pull request. In the PR description, include: what was wrong, what you changed, how to verify, and the verification video.
+9. Once the PR is created, finish the session. Do not wait for further instructions.
 
 ## Specifications
 

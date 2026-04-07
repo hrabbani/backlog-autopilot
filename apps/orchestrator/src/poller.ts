@@ -92,6 +92,7 @@ async function pollActiveSessionsInner(): Promise<void> {
         "usage_limit_exceeded",
         "error",
         "awaiting_user_input",
+        "waiting_for_user",
       ];
 
       // Triage sessions are done once structured output is populated
