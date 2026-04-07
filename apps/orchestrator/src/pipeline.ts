@@ -371,7 +371,8 @@ export async function dispatchJob(
   issueId: string,
   triage: TriageOutput,
   triageSessionUrl: string,
-  approvalThread?: { channel: string; messageTs: string }
+  approvalThread?: { channel: string; messageTs: string },
+  clarificationContext?: { text: string; userId: string; channel: string; messageTs: string }
 ): Promise<void> {
   const db = getDb();
   const jobPlaybookId = (
@@ -385,9 +386,17 @@ export async function dispatchJob(
     return;
   }
 
+  let prompt = `Fix this issue:\n\nIdentifier: ${issueId}\nRoot cause: ${triage.root_cause_hypothesis}\nSuggested approach: ${triage.suggested_approach}\nAffected files: ${triage.affected_files.join(", ")}\nAffected packages: ${triage.affected_packages.join(", ")}`;
+
+  if (clarificationContext) {
+    prompt += `\n\nAdditional context from the team:\n${clarificationContext.text}`;
+  }
+
+  prompt += `\n\nIMPORTANT: Name your branch "${issueId.toLowerCase()}-fix" so Linear auto-links the PR.\n\nAfter creating the PR, test your changes and record a video. Include the video in the PR description.`;
+
   const devin = getDevinClient();
   const session = await devin.createSession({
-    prompt: `Fix this issue:\n\nIdentifier: ${issueId}\nRoot cause: ${triage.root_cause_hypothesis}\nSuggested approach: ${triage.suggested_approach}\nAffected files: ${triage.affected_files.join(", ")}\nAffected packages: ${triage.affected_packages.join(", ")}\n\nIMPORTANT: Name your branch "${issueId.toLowerCase()}-fix" so Linear auto-links the PR.\n\nAfter creating the PR, test your changes and record a video. Include the video in the PR description.`,
+    prompt,
     playbook_id: jobPlaybookId,
     tags: ["job", issueId],
     repos: ["hrabbani/tailored"],
@@ -400,12 +409,17 @@ export async function dispatchJob(
     issue_id: issueId,
   });
 
-  // Post session link to approval thread if this was an approved fix
-  if (approvalThread) {
+  // Post session link to the originating thread (approval or clarification)
+  const replyThread = approvalThread ?? (clarificationContext ? { channel: clarificationContext.channel, messageTs: clarificationContext.messageTs } : undefined);
+  if (replyThread) {
+    const replyText = clarificationContext
+      ? `Got it — I'm incorporating <@${clarificationContext.userId}>'s input and dispatching a fix. Follow along: ${session.url}`
+      : `I'm on it — follow along: ${session.url}`;
+
     await postMessage({
-      channel: approvalThread.channel,
-      text: `I'm on it — follow along: ${session.url}`,
-      thread_ts: approvalThread.messageTs,
+      channel: replyThread.channel,
+      text: replyText,
+      thread_ts: replyThread.messageTs,
     });
   }
 
