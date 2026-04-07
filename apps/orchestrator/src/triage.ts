@@ -102,9 +102,8 @@ export function makeDecision(triage: TriageOutput): TriageDecision {
     const field = req as keyof TriageOutput;
     return !!triage[field];
   });
-  const isBug = triage.issue_category === "bug";
 
-  if (meetsConfidence && meetsComplexity && meetsRequirements && isBug) {
+  if (meetsConfidence && meetsComplexity && meetsRequirements) {
     return {
       path: "path_1_autofix",
       reason: `Auto-dispatch: confidence=${triage.confidence}, complexity=${triage.complexity}, safe_to_autofix=${triage.safe_to_autofix}`,
