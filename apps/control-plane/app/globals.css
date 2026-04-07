@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+@theme inline {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+  --color-devin-bg-main: #101010;
+  --color-devin-bg-surface: #181818;
+  --color-devin-bg-surface-hover: #202020;
+  --color-devin-bg-component: #252525;
+  --color-devin-text-primary: #cbcbcb;
+  --color-devin-text-secondary: #8f8f8f;
+  --color-devin-border: #353535;
+  --color-devin-border-hover: #454545;
+  --color-devin-hover: #1f1f1f;
+  --color-devin-accent: #6096ff;
+  --color-devin-accent-bright: #4489ff;
+  --color-devin-amber: #ffaa47;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  body {
+    background-color: var(--color-devin-bg-main);
+    color: var(--color-devin-text-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
