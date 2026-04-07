@@ -39,4 +39,5 @@ notifications:
     team-ai: "#team-ai-pr-reviews"
     team-platform: "#team-platform-pr-reviews"
     team-frontend: "#team-frontend-pr-reviews"
+    team-sdk: "#team-sdk-pr-reviews"
   log_channel: "#auto-backlog-updates"
