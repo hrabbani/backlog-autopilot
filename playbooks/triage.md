@@ -20,7 +20,7 @@ You are triaging a backlog issue for the Tailored project. Your job is to unders
 - confidence should reflect how well you understand the issue AND how confident you are in your proposed fix
 - safe_to_autofix should be true ONLY if: the fix is straightforward, unlikely to break other things, and doesn't touch sensitive areas
 - requires_clarification should be true if the issue description is too vague to act on — include a specific question in clarification_question
-- requires_product_decision should be true if the issue involves a product choice (e.g., changing behavior, adding a feature that could go multiple ways)
+- requires_product_decision should be true ONLY if the fix would visibly change the product's behavior for end users AND there are multiple reasonable approaches that a product manager would need to weigh in on. Bug fixes that restore intended behavior, performance improvements, UI improvements, and internal refactors should NOT be flagged as product decisions even if they touch user-facing code.
 
 ## Advice
 
