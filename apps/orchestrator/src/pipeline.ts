@@ -4,13 +4,12 @@ import { logEvent } from "./ledger.js";
 import { makeDecision, checkPolicyBlock, type TriageDecision } from "./triage.js";
 import { loadBlueprint } from "./config.js";
 import { trackSession } from "./poller.js";
-import { postMessage, postLogMessage } from "./slack/app.js";
+import { postMessage, postLogMessage, postWithThread } from "./slack/app.js";
 import {
-  buildApprovalBlocks,
+  buildTriageMainBlocks,
+  buildTriageDetailBlocks,
   buildPRNotification,
-  buildPolicyBlockBlocks,
   buildLogOneLiner,
-  buildTriageBriefBlocks,
   humanize,
 } from "./slack/messages.js";
 import {
@@ -138,7 +137,7 @@ export async function triggerTriage(issue: {
       issueId: issue.identifier,
       issueTitle: issue.title,
       issueUrl: issue.url,
-      action: "Triage started",
+      action: "I started triaging",
       detail: `<${session.url}|View session>`,
     })
   );
@@ -220,16 +219,34 @@ export async function handleTriageComplete(params: {
           issueId: issue_id,
           issueTitle: issueInfo.title,
           issueUrl: issueInfo.url,
-          action: "Auto-dispatched fix",
+          action: "I auto-dispatched a fix",
           detail: `confidence=${(triage.confidence * 100).toFixed(0)}%`,
         })
       );
       break;
 
-    case "path_2_approval":
+    case "path_2_approval": {
+      const mainTs = await postWithThread({
+        channel: teamChannel,
+        text: `Approval needed: ${issueInfo.title}`,
+        blocks: buildTriageMainBlocks({
+          headline: "Approval needed",
+          issueId: issue_id,
+          issueTitle: issueInfo.title,
+          issueUrl: issueInfo.url,
+          summary: `I triaged this ${triage.complexity} ${triage.issue_category} at ${(triage.confidence * 100).toFixed(0)}% confidence. ${triage.root_cause_hypothesis.split('.')[0]}.`,
+          buttons: true,
+        }),
+        threadText: `Triage details for ${issue_id}`,
+        threadBlocks: buildTriageDetailBlocks({
+          triage,
+          sessionUrl: session.url,
+        }),
+      });
+
       logEvent({
         issue_id,
-        issue_title: "",
+        issue_title: issueInfo.title,
         action: "approval_requested",
         path: "path_2_approval",
         confidence: triage.confidence,
@@ -238,19 +255,9 @@ export async function handleTriageComplete(params: {
         devin_session_id: devin_session_id,
         devin_session_url: session.url,
         pr_url: null,
-        metadata: { reason: decision.reason },
+        metadata: { reason: decision.reason, message_ts: mainTs, channel: teamChannel },
       });
-      await postMessage({
-        channel: teamChannel,
-        text: `Approval needed for ${issue_id}`,
-        blocks: buildApprovalBlocks({
-          issueId: issue_id,
-          issueTitle: triage.root_cause_hypothesis,
-          issueUrl: session.url,
-          triage,
-          sessionUrl: session.url,
-        }),
-      });
+
       await postLogMessage(
         blueprint.notifications.log_channel,
         buildLogOneLiner({
@@ -262,11 +269,12 @@ export async function handleTriageComplete(params: {
         })
       );
       break;
+    }
 
-    case "path_3_clarification":
+    case "path_3_clarification": {
       logEvent({
         issue_id,
-        issue_title: "",
+        issue_title: issueInfo.title,
         action: "clarification_requested",
         path: "path_3_clarification",
         confidence: triage.confidence,
@@ -280,22 +288,43 @@ export async function handleTriageComplete(params: {
           question: triage.clarification_question,
         },
       });
+
+      await postWithThread({
+        channel: teamChannel,
+        text: `Clarification needed: ${issueInfo.title}`,
+        blocks: buildTriageMainBlocks({
+          headline: "Clarification needed",
+          issueId: issue_id,
+          issueTitle: issueInfo.title,
+          issueUrl: issueInfo.url,
+          summary: triage.clarification_question ?? "I need more information before I can act on this issue.",
+        }),
+        threadText: `Triage details for ${issue_id}`,
+        threadBlocks: buildTriageDetailBlocks({
+          triage,
+          sessionUrl: session.url,
+        }),
+      });
+
       await postLogMessage(
         blueprint.notifications.log_channel,
         buildLogOneLiner({
           issueId: issue_id,
           issueTitle: issueInfo.title,
           issueUrl: issueInfo.url,
-          action: "Clarification requested",
+          action: "Clarification needed",
           detail: triage.clarification_question ?? "needs more info",
         })
       );
       break;
+    }
 
-    case "path_4_policy_block":
+    case "path_4_policy_block": {
+      const blockedBy = (decision as Extract<TriageDecision, { path: "path_4_policy_block" }>).blocked_by;
+
       logEvent({
         issue_id,
-        issue_title: "",
+        issue_title: issueInfo.title,
         action: "policy_blocked",
         path: "path_4_policy_block",
         confidence: triage.confidence,
@@ -305,33 +334,40 @@ export async function handleTriageComplete(params: {
         devin_session_url: session.url,
         pr_url: null,
         metadata: {
-          blocked_by: (decision as Extract<TriageDecision, { path: "path_4_policy_block" }>).blocked_by,
+          blocked_by: blockedBy,
           source: "triage_output",
         },
       });
-      await postMessage({
+
+      await postWithThread({
         channel: teamChannel,
-        text: `Policy block on ${issue_id}`,
-        blocks: buildPolicyBlockBlocks({
+        text: `Manual handoff needed: ${issueInfo.title}`,
+        blocks: buildTriageMainBlocks({
+          headline: "Manual handoff needed",
           issueId: issue_id,
-          issueTitle: triage.root_cause_hypothesis,
-          issueUrl: session.url,
+          issueTitle: issueInfo.title,
+          issueUrl: issueInfo.url,
+          summary: `${humanize(blockedBy)}. I've provided a triage brief in the thread to help with investigation.`,
+        }),
+        threadText: `Triage details for ${issue_id}`,
+        threadBlocks: buildTriageDetailBlocks({
           triage,
           sessionUrl: session.url,
-          blockedBy: (decision as Extract<TriageDecision, { path: "path_4_policy_block" }>).blocked_by,
         }),
       });
+
       await postLogMessage(
         blueprint.notifications.log_channel,
         buildLogOneLiner({
           issueId: issue_id,
           issueTitle: issueInfo.title,
           issueUrl: issueInfo.url,
-          action: "Policy blocked",
-          detail: humanize((decision as Extract<TriageDecision, { path: "path_4_policy_block" }>).blocked_by),
+          action: "Flagged for manual handoff",
+          detail: humanize(blockedBy),
         })
       );
       break;
+    }
   }
 }
 
@@ -341,7 +377,8 @@ export async function handleTriageComplete(params: {
 export async function dispatchJob(
   issueId: string,
   triage: TriageOutput,
-  triageSessionUrl: string
+  triageSessionUrl: string,
+  approvalThread?: { channel: string; messageTs: string }
 ): Promise<void> {
   const db = getDb();
   const jobPlaybookId = (
@@ -370,6 +407,15 @@ export async function dispatchJob(
     issue_id: issueId,
   });
 
+  // Post session link to approval thread if this was an approved fix
+  if (approvalThread) {
+    await postMessage({
+      channel: approvalThread.channel,
+      text: `I'm on it — follow along: ${session.url}`,
+      thread_ts: approvalThread.messageTs,
+    });
+  }
+
   const issueInfo = getIssueInfo(issueId);
 
   logEvent({
@@ -394,13 +440,13 @@ export async function dispatchJob(
 
   await postMessage({
     channel: teamChannel,
-    text: `Devin is working on a fix for ${issueId}`,
+    text: `I'm working on a fix for ${issueId}`,
     blocks: [
       {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `*Devin is working on a fix for <${issueInfo.url}|${issueId}>*${issueInfo.title ? ` — ${issueInfo.title}` : ""}\n\nConfidence: ${(triage.confidence * 100).toFixed(0)}% | Complexity: ${triage.complexity}\n<${session.url}|Watch Devin work on this fix>`,
+          text: `*I'm working on a fix for <${issueInfo.url}|${issueId}>*${issueInfo.title ? ` — ${issueInfo.title}` : ""}\n\nConfidence: ${(triage.confidence * 100).toFixed(0)}% | Complexity: ${triage.complexity}\n<${session.url}|Follow along as I work on this>`,
         },
       },
     ],
@@ -412,7 +458,7 @@ export async function dispatchJob(
       issueId,
       issueTitle: issueInfo.title,
       issueUrl: issueInfo.url,
-      action: "Fix started",
+      action: "I started working on a fix",
       detail: `<${session.url}|View session>`,
     })
   );
@@ -487,16 +533,58 @@ export async function handleJobComplete(params: {
       // Attachments may not be available
     }
 
+    // Fetch PR metadata from GitHub API
+    let prTitle: string | undefined;
+    let linesAdded: number | undefined;
+    let filesChanged = 0;
+
+    const prMatch = prUrl.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
+    if (prMatch) {
+      const [, owner, repo, prNumber] = prMatch;
+      try {
+        const ghRes = await fetch(
+          `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}`,
+          {
+            headers: {
+              ...(process.env.GITHUB_TOKEN
+                ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` }
+                : {}),
+              Accept: "application/vnd.github.v3+json",
+            },
+          }
+        );
+        if (ghRes.ok) {
+          const prData = (await ghRes.json()) as {
+            title: string;
+            additions: number;
+            changed_files: number;
+          };
+          prTitle = prData.title;
+          linesAdded = prData.additions;
+          filesChanged = prData.changed_files;
+        }
+      } catch {
+        // Fall back to triage data
+      }
+    }
+
+    // Fall back to triage affected files count
+    if (filesChanged === 0) {
+      filesChanged = triageOutput?.affected_files?.length ?? 0;
+    }
+
     await postMessage({
       channel: prChannel,
       text: `PR ready for review: ${params.issue_id}`,
       blocks: buildPRNotification({
         issueId: params.issue_id,
         issueTitle: triageOutput?.root_cause_hypothesis ?? params.issue_id,
+        issueUrl: getIssueInfo(params.issue_id).url,
         prUrl,
+        prTitle,
         sessionUrl: session.url,
-        confidence: triageOutput?.confidence ?? 0,
-        filesChanged: triageOutput?.affected_files ?? [],
+        filesChanged,
+        linesAdded,
         videoUrl,
       }),
     });
@@ -507,7 +595,7 @@ export async function handleJobComplete(params: {
         issueId: params.issue_id,
         issueTitle: getIssueInfo(params.issue_id).title,
         issueUrl: getIssueInfo(params.issue_id).url,
-        action: "PR opened",
+        action: "I opened a PR",
         detail: `<${prUrl}|View PR>, review in ${prChannel}`,
       })
     );

@@ -13,13 +13,11 @@ export function humanize(key: string): string {
 
   if (map[key]) return map[key];
 
-  // path:supabase/migrations/* → "Touches supabase/migrations"
   if (key.startsWith("path:")) {
     const p = key.slice(5).replace("/*", "");
     return `Touches ${p}`;
   }
 
-  // label:foo → "Tagged as foo"
   if (key.startsWith("label:")) {
     return `Tagged as ${key.slice(6)}`;
   }
@@ -27,74 +25,31 @@ export function humanize(key: string): string {
   return key.replace(/_/g, " ");
 }
 
-export function buildTriageBriefBlocks(params: {
+/**
+ * Compact main message for triage results.
+ * Used for approval, clarification, and policy block paths.
+ * Buttons are only included for approval path.
+ */
+export function buildTriageMainBlocks(params: {
+  headline: string;
   issueId: string;
   issueTitle: string;
   issueUrl: string;
-  triage: TriageOutput;
-  sessionUrl: string;
+  summary: string;
+  buttons?: boolean;
 }): Array<Record<string, unknown>> {
-  const { issueId, issueTitle, issueUrl, triage, sessionUrl } = params;
-
-  return [
-    {
-      type: "header",
-      text: {
-        type: "plain_text",
-        text: `Triage Brief: ${issueId}`,
-      },
-    },
+  const blocks: Array<Record<string, unknown>> = [
     {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*<${issueUrl}|${issueTitle}>*\n\n*Category:* ${triage.issue_category} | *Confidence:* ${(triage.confidence * 100).toFixed(0)}% | *Complexity:* ${triage.complexity}`,
-      },
-    },
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `*Root Cause Hypothesis:*\n${triage.root_cause_hypothesis}`,
-      },
-    },
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `*Suggested Approach:*\n${triage.suggested_approach}`,
-      },
-    },
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `*Affected Files:*\n${triage.affected_files.map((f) => `\`${f}\``).join(", ") || "none identified"}`,
-      },
-    },
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `*Team:* ${triage.responsible_team} | *Due Date:* ${triage.due_date_status} | <${sessionUrl}|View Devin Session>`,
+        text: `*${params.headline}: <${params.issueUrl}|${params.issueTitle}>*\n${params.summary}`,
       },
     },
   ];
-}
 
-export function buildApprovalBlocks(params: {
-  issueId: string;
-  issueTitle: string;
-  issueUrl: string;
-  triage: TriageOutput;
-  sessionUrl: string;
-}): Array<Record<string, unknown>> {
-  const briefBlocks = buildTriageBriefBlocks(params);
-
-  return [
-    ...briefBlocks,
-    { type: "divider" },
-    {
+  if (params.buttons) {
+    blocks.push({
       type: "actions",
       elements: [
         {
@@ -102,83 +57,142 @@ export function buildApprovalBlocks(params: {
           text: { type: "plain_text", text: "Approve Fix" },
           style: "primary",
           action_id: "approve_fix",
-          value: JSON.stringify({
-            issue_id: params.issueId,
-          }),
+          value: JSON.stringify({ issue_id: params.issueId }),
         },
         {
           type: "button",
           text: { type: "plain_text", text: "Edit Scope" },
           action_id: "edit_scope",
-          value: JSON.stringify({
-            issue_id: params.issueId,
-          }),
+          value: JSON.stringify({ issue_id: params.issueId }),
         },
         {
           type: "button",
           text: { type: "plain_text", text: "I'll Handle This" },
           style: "danger",
           action_id: "human_claim",
-          value: JSON.stringify({
-            issue_id: params.issueId,
-          }),
+          value: JSON.stringify({ issue_id: params.issueId }),
         },
       ],
-    },
-  ];
-}
-
-export function buildPRNotification(params: {
-  issueId: string;
-  issueTitle: string;
-  prUrl: string;
-  sessionUrl: string;
-  confidence: number;
-  filesChanged: string[];
-  videoUrl?: string;
-}): Array<Record<string, unknown>> {
-  const { issueId, issueTitle, prUrl, sessionUrl, confidence, filesChanged, videoUrl } = params;
-
-  const blocks: Array<Record<string, unknown>> = [
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `*Backlog Autopilot opened a PR for ${issueId}*\n<${prUrl}|${issueTitle}>\n\nConfidence: ${(confidence * 100).toFixed(0)}% | Files: ${filesChanged.length} changed`,
-      },
-    },
-    {
-      type: "actions",
-      elements: [
-        {
-          type: "button",
-          text: { type: "plain_text", text: "View PR" },
-          url: prUrl,
-          action_id: "view_pr",
-        },
-        {
-          type: "button",
-          text: { type: "plain_text", text: "View Devin Session" },
-          url: sessionUrl,
-          action_id: "view_session",
-        },
-      ],
-    },
-  ];
-
-  if (videoUrl) {
-    blocks.splice(1, 0, {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `*Video proof:* <${videoUrl}|Watch Devin test the fix>`,
-      },
     });
   }
 
   return blocks;
 }
 
+/**
+ * Detailed triage info posted as a thread reply.
+ */
+export function buildTriageDetailBlocks(params: {
+  triage: TriageOutput;
+  sessionUrl: string;
+}): Array<Record<string, unknown>> {
+  const { triage, sessionUrl } = params;
+
+  return [
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `*Root cause hypothesis*\n${triage.root_cause_hypothesis}`,
+      },
+    },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `*Suggested approach*\n${triage.suggested_approach}`,
+      },
+    },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `*Affected files*\n${triage.affected_files.map((f) => `\`${f}\``).join(", ") || "none identified"}`,
+      },
+    },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `*Team:* ${triage.responsible_team} · *Confidence:* ${(triage.confidence * 100).toFixed(0)}% · *Complexity:* ${triage.complexity}`,
+      },
+    },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `<${sessionUrl}|View Devin session>`,
+      },
+    },
+  ];
+}
+
+/**
+ * PR notification for review channels.
+ */
+export function buildPRNotification(params: {
+  issueId: string;
+  issueTitle: string;
+  issueUrl: string;
+  prUrl: string;
+  prTitle?: string;
+  sessionUrl: string;
+  filesChanged: number;
+  linesAdded?: number;
+  videoUrl?: string;
+}): Array<Record<string, unknown>> {
+  const { issueId, issueTitle, issueUrl, prUrl, prTitle, sessionUrl, filesChanged, linesAdded, videoUrl } = params;
+
+  const stats = [
+    `${filesChanged} files changed`,
+    ...(linesAdded != null ? [`+${linesAdded} lines`] : []),
+  ].join(" · ");
+
+  const blocks: Array<Record<string, unknown>> = [
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `*<${prUrl}|${prTitle ?? issueTitle}>*\nI opened a PR for <${issueUrl}|${issueId}>\n${stats}`,
+      },
+    },
+  ];
+
+  if (videoUrl) {
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `I recorded a verification: <${videoUrl}|Watch the fix in action>`,
+      },
+    });
+  }
+
+  blocks.push({
+    type: "actions",
+    elements: [
+      {
+        type: "button",
+        text: { type: "plain_text", text: "View PR" },
+        style: "primary",
+        url: prUrl,
+        action_id: "view_pr",
+      },
+      {
+        type: "button",
+        text: { type: "plain_text", text: "View Devin Session" },
+        url: sessionUrl,
+        action_id: "view_session",
+      },
+    ],
+  });
+
+  return blocks;
+}
+
+/**
+ * One-liner for the log channel.
+ */
 export function buildLogOneLiner(params: {
   issueId: string;
   issueTitle?: string;
@@ -191,27 +205,4 @@ export function buildLogOneLiner(params: {
     : params.issueId;
   const title = params.issueTitle ? ` — ${params.issueTitle}` : "";
   return `*${issueLink}*${title} · ${params.action}: ${params.detail}`;
-}
-
-export function buildPolicyBlockBlocks(params: {
-  issueId: string;
-  issueTitle: string;
-  issueUrl: string;
-  triage: TriageOutput;
-  sessionUrl: string;
-  blockedBy: string;
-}): Array<Record<string, unknown>> {
-  const briefBlocks = buildTriageBriefBlocks(params);
-
-  return [
-    ...briefBlocks,
-    { type: "divider" },
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `*Policy Block:* ${humanize(params.blockedBy)}. Per policy, this requires manual review. Devin's triage brief above should help with the investigation.`,
-      },
-    },
-  ];
 }

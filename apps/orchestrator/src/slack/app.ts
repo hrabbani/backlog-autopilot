@@ -51,3 +51,30 @@ export async function postLogMessage(
 ): Promise<void> {
   await postMessage({ channel: logChannel, text });
 }
+
+/**
+ * Post a main message then a thread reply with detail blocks.
+ * Returns the main message ts.
+ */
+export async function postWithThread(params: {
+  channel: string;
+  text: string;
+  blocks?: Array<Record<string, unknown>>;
+  threadText: string;
+  threadBlocks?: Array<Record<string, unknown>>;
+}): Promise<string | undefined> {
+  const mainTs = await postMessage({
+    channel: params.channel,
+    text: params.text,
+    blocks: params.blocks,
+  });
+  if (mainTs) {
+    await postMessage({
+      channel: params.channel,
+      text: params.threadText,
+      blocks: params.threadBlocks,
+      thread_ts: mainTs,
+    });
+  }
+  return mainTs;
+}

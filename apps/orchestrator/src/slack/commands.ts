@@ -2,6 +2,7 @@ import type { App } from "@slack/bolt";
 import { getDigest, logEvent } from "../ledger.js";
 import { getDb } from "../db.js";
 import { dispatchJob } from "../pipeline.js";
+import { postMessage } from "./app.js";
 import { TriageOutputSchema } from "@backlog-autopilot/shared";
 
 /**
@@ -40,7 +41,7 @@ export function registerSlackHandlers(app: App): void {
 
       await say({
         text: [
-          "*Backlog Autopilot — Weekly Digest*",
+          "*Weekly Digest*",
           `Issues triaged: ${digest.issues_triaged}`,
           `Fixes dispatched: ${digest.jobs_dispatched}`,
           `PRs created: ${digest.prs_created}`,
@@ -60,21 +61,26 @@ export function registerSlackHandlers(app: App): void {
   });
 
   // Approve Fix button
-  app.action("approve_fix", async ({ ack, body, respond }) => {
+  app.action("approve_fix", async ({ ack, body }) => {
     await ack();
     let payload: { issue_id: string };
     try {
       payload = JSON.parse((body as any).actions[0].value);
     } catch {
-      await respond({ text: "Internal error: could not parse action payload." });
       return;
     }
     const userId = (body as any).user?.id ?? "unknown";
+    const messageTs = (body as any).message?.ts as string | undefined;
+    const channelId = (body as any).channel?.id as string | undefined;
 
-    await respond({
-      text: `Approved by <@${userId}>. Dispatching job session for ${payload.issue_id}...`,
-      replace_original: false,
-    });
+    // Post approval confirmation as thread reply
+    if (channelId && messageTs) {
+      await postMessage({
+        channel: channelId,
+        text: `Approved by <@${userId}>. I'm dispatching a fix now...`,
+        thread_ts: messageTs,
+      });
+    }
 
     // Look up triage output from ledger
     const triageEvent = getDb()
@@ -101,10 +107,15 @@ export function registerSlackHandlers(app: App): void {
           metadata: { approved_by: userId },
         });
 
+        const approvalThread = channelId && messageTs
+          ? { channel: channelId, messageTs }
+          : undefined;
+
         dispatchJob(
           payload.issue_id,
           parseResult.data,
-          triageEvent.devin_session_url ?? ""
+          triageEvent.devin_session_url ?? "",
+          approvalThread
         ).catch((err) => {
           console.error(`[slack] Failed to dispatch job for ${payload.issue_id}:`, err);
         });
@@ -113,21 +124,25 @@ export function registerSlackHandlers(app: App): void {
   });
 
   // I'll Handle This button
-  app.action("human_claim", async ({ ack, body, respond }) => {
+  app.action("human_claim", async ({ ack, body }) => {
     await ack();
     let payload: { issue_id: string };
     try {
       payload = JSON.parse((body as any).actions[0].value);
     } catch {
-      await respond({ text: "Internal error: could not parse action payload." });
       return;
     }
     const userId = (body as any).user?.id ?? "unknown";
+    const messageTs = (body as any).message?.ts as string | undefined;
+    const channelId = (body as any).channel?.id as string | undefined;
 
-    await respond({
-      text: `<@${userId}> is taking this one. Devin standing down on ${payload.issue_id}.`,
-      replace_original: false,
-    });
+    if (channelId && messageTs) {
+      await postMessage({
+        channel: channelId,
+        text: `<@${userId}> is taking this one. I'll stand down on ${payload.issue_id}.`,
+        thread_ts: messageTs,
+      });
+    }
 
     logEvent({
       issue_id: payload.issue_id,
@@ -145,21 +160,24 @@ export function registerSlackHandlers(app: App): void {
   });
 
   // Edit Scope button
-  app.action("edit_scope", async ({ ack, body, respond }) => {
+  app.action("edit_scope", async ({ ack, body }) => {
     await ack();
     let payload: { issue_id: string };
     try {
       payload = JSON.parse((body as any).actions[0].value);
     } catch {
-      await respond({ text: "Internal error: could not parse action payload." });
       return;
     }
+    const messageTs = (body as any).message?.ts as string | undefined;
+    const channelId = (body as any).channel?.id as string | undefined;
 
-    await respond({
-      text: `Reply in this thread to refine the scope for ${payload.issue_id}. Devin will pick up your instructions.`,
-      replace_original: false,
-    });
-
+    if (channelId && messageTs) {
+      await postMessage({
+        channel: channelId,
+        text: `Reply in this thread to refine the scope for ${payload.issue_id}. I'll pick up your instructions.`,
+        thread_ts: messageTs,
+      });
+    }
   });
 
   // No-op handlers for link buttons
