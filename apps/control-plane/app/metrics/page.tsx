@@ -1,5 +1,5 @@
 import { getMetrics, getLedgerEvents } from "@/lib/db";
-import { TrendingUp, GitPullRequest, CheckCircle, Target } from "lucide-react";
+import { TrendingUp, GitPullRequest, CheckCircle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +17,7 @@ export default function MetricsPage() {
           System performance and backlog health.
         </p>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-12">
           <MetricCard
             icon={<CheckCircle size={16} className="text-emerald-400" />}
             label="Issues Triaged"
@@ -32,11 +32,6 @@ export default function MetricsPage() {
             icon={<TrendingUp size={16} className="text-emerald-400" />}
             label="PRs Merged"
             value={metrics.prs_merged}
-          />
-          <MetricCard
-            icon={<Target size={16} className="text-devin-amber" />}
-            label="Avg Confidence"
-            value={metrics.avg_confidence != null ? `${(metrics.avg_confidence * 100).toFixed(0)}%` : "—"}
           />
         </div>
 

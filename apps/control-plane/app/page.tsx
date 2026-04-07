@@ -24,7 +24,6 @@ export default function AuditTrailPage() {
                 <th className="text-left py-3 px-4 font-medium text-[13px]">Issue</th>
                 <th className="text-left py-3 px-4 font-medium text-[13px]">Action</th>
                 <th className="text-left py-3 px-4 font-medium text-[13px]">Path</th>
-                <th className="text-left py-3 px-4 font-medium text-[13px]">Confidence</th>
                 <th className="text-left py-3 px-4 font-medium text-[13px]">Team</th>
                 <th className="text-left py-3 px-4 font-medium text-[13px]">Links</th>
               </tr>
@@ -33,7 +32,7 @@ export default function AuditTrailPage() {
               {events.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={6}
                     className="text-center py-12 text-devin-text-secondary"
                   >
                     No events yet. Trigger a triage to get started.
@@ -60,15 +59,6 @@ export default function AuditTrailPage() {
                     </td>
                     <td className="py-3 px-4 text-devin-text-secondary text-[13px]">
                       {event.path?.replace("path_", "").replace(/_/g, " ") ?? "—"}
-                    </td>
-                    <td className="py-3 px-4 text-[13px]">
-                      {event.confidence != null ? (
-                        <span className="text-devin-text-primary">
-                          {(event.confidence * 100).toFixed(0)}%
-                        </span>
-                      ) : (
-                        <span className="text-devin-text-secondary">—</span>
-                      )}
                     </td>
                     <td className="py-3 px-4 text-devin-text-secondary text-[13px]">
                       {event.responsible_team ?? "—"}

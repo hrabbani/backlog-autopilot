@@ -43,7 +43,6 @@ export function getMetrics(): {
   issues_triaged: number;
   prs_created: number;
   prs_merged: number;
-  avg_confidence: number | null;
 } {
   const db = getDb();
 
@@ -52,15 +51,13 @@ export function getMetrics(): {
       `SELECT
         COUNT(CASE WHEN action = 'triage_completed' THEN 1 END) AS issues_triaged,
         COUNT(CASE WHEN action = 'pr_created' THEN 1 END) AS prs_created,
-        COUNT(CASE WHEN action = 'pr_merged' THEN 1 END) AS prs_merged,
-        AVG(confidence) AS avg_confidence
+        COUNT(CASE WHEN action = 'pr_merged' THEN 1 END) AS prs_merged
       FROM ledger_events`
     )
     .get() as {
     issues_triaged: number;
     prs_created: number;
     prs_merged: number;
-    avg_confidence: number | null;
   };
 
   return row;
