@@ -16,6 +16,7 @@ export const LedgerActionSchema = z.enum([
   "approval_declined",
   "human_claimed",
   "clarification_requested",
+  "clarification_resolved",
   "policy_blocked",
   "job_started",
   "job_completed",

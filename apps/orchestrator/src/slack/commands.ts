@@ -340,4 +340,149 @@ export function registerSlackHandlers(app: App): void {
       })
     );
   });
+
+  // Clarification reply handler — listens for @mentions in clarification threads
+  app.message(async ({ message, say }) => {
+    // Only handle threaded messages that mention the bot
+    const msg = message as any;
+    if (!msg.thread_ts || msg.thread_ts === msg.ts) return; // not a thread reply
+    if (!msg.text) return;
+    if (msg.subtype) return; // ignore bot messages, edits, etc.
+
+    // Check if our bot is mentioned
+    const botUserId = process.env.SLACK_BOT_USER_ID;
+    if (!botUserId) return;
+    if (!msg.text.includes(`<@${botUserId}>`)) return;
+
+    // Look up clarification events to find one matching this thread
+    const db = getDb();
+    const clarificationEvent = db
+      .prepare(
+        `SELECT issue_id, metadata, devin_session_url
+         FROM ledger_events
+         WHERE action = 'clarification_requested'
+           AND json_extract(metadata, '$.message_ts') = @threadTs
+         ORDER BY timestamp DESC LIMIT 1`
+      )
+      .get({ threadTs: msg.thread_ts }) as {
+        issue_id: string;
+        metadata: string;
+        devin_session_url: string;
+      } | undefined;
+
+    if (!clarificationEvent) return; // not a clarification thread
+
+    // Check if we already dispatched a job for this clarification (one-shot guard)
+    const alreadyDispatched = db
+      .prepare(
+        `SELECT 1 FROM ledger_events
+         WHERE issue_id = @issueId
+           AND action = 'clarification_resolved'
+         LIMIT 1`
+      )
+      .get({ issueId: clarificationEvent.issue_id });
+
+    if (alreadyDispatched) {
+      await say({
+        text: "I already dispatched a fix for this issue based on earlier clarification.",
+        thread_ts: msg.thread_ts,
+      });
+      return;
+    }
+
+    // Extract the clarification text (strip the bot mention)
+    const clarificationText = msg.text
+      .replace(new RegExp(`<@${botUserId}>`, "g"), "")
+      .trim();
+
+    if (!clarificationText) {
+      await say({
+        text: "I see the mention but no clarification text. Could you reply again with the details?",
+        thread_ts: msg.thread_ts,
+      });
+      return;
+    }
+
+    // Look up the original triage output
+    const triageEvent = db
+      .prepare(
+        `SELECT metadata, devin_session_url
+         FROM ledger_events
+         WHERE issue_id = @issueId
+           AND action = 'triage_completed'
+         ORDER BY timestamp DESC LIMIT 1`
+      )
+      .get({ issueId: clarificationEvent.issue_id }) as {
+        metadata: string;
+        devin_session_url: string;
+      } | undefined;
+
+    if (!triageEvent?.metadata) {
+      await say({
+        text: "I couldn't find the original triage for this issue. Something went wrong.",
+        thread_ts: msg.thread_ts,
+      });
+      return;
+    }
+
+    const meta = JSON.parse(triageEvent.metadata);
+    const parseResult = TriageOutputSchema.safeParse(meta.triage_output);
+    if (!parseResult.success) {
+      await say({
+        text: "I couldn't parse the triage data for this issue.",
+        thread_ts: msg.thread_ts,
+      });
+      return;
+    }
+
+    const triage = parseResult.data;
+    const userId = msg.user as string;
+    const channel = msg.channel as string;
+
+    // Log clarification resolved
+    logEvent({
+      issue_id: clarificationEvent.issue_id,
+      issue_title: "",
+      action: "clarification_resolved",
+      path: "path_3_clarification",
+      confidence: triage.confidence,
+      routing_rule_applied: null,
+      responsible_team: triage.responsible_team,
+      devin_session_id: null,
+      devin_session_url: null,
+      pr_url: null,
+      metadata: {
+        clarification_text: clarificationText,
+        clarified_by: userId,
+      },
+    });
+
+    // Dispatch job with clarification context
+    await dispatchJob(
+      clarificationEvent.issue_id,
+      triage,
+      triageEvent.devin_session_url ?? "",
+      undefined, // no approval thread
+      {
+        text: clarificationText,
+        userId,
+        channel,
+        messageTs: msg.thread_ts,
+      }
+    );
+
+    // Log to updates channel
+    const blueprint = loadBlueprint();
+    const issueUrl = `https://linear.app/tailored-sdk/issue/${clarificationEvent.issue_id}`;
+    await postLogMessage(
+      blueprint.notifications.log_channel,
+      buildLogOneLiner({
+        issueId: clarificationEvent.issue_id,
+        issueTitle: "",
+        issueUrl,
+        action: "Clarification received, auto-dispatched",
+        detail: `context from <@${userId}>`,
+      })
+    );
+  });
 }
