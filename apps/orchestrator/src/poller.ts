@@ -91,9 +91,16 @@ async function pollActiveSessionsInner(): Promise<void> {
         "inactivity",
         "usage_limit_exceeded",
         "error",
+        "awaiting_user_input",
       ];
 
+      // Triage sessions are done once structured output is populated
+      const hasStructuredOutput = !!devinSession.structured_output &&
+        Object.keys(devinSession.structured_output).length > 0;
+      const isTriageComplete = session.session_type === "triage" && hasStructuredOutput;
+
       const isTerminal =
+        isTriageComplete ||
         terminalStatuses.includes(devinSession.status) ||
         (devinSession.status_detail &&
           terminalDetails.includes(devinSession.status_detail));
