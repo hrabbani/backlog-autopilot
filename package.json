@@ -11,5 +11,8 @@
     "build": "bun --filter '*' build",
     "setup": "bun --filter orchestrator setup",
     "demo:trigger": "bun --filter orchestrator demo:trigger"
+  },
+  "dependencies": {
+    "@linear/sdk": "^80.1.0"
   }
 }
