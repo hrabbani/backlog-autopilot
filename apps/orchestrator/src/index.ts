@@ -5,6 +5,8 @@ import { getDb } from "./db.js";
 import { handleLinearWebhook } from "./webhooks/linear.js";
 import { getSlackApp } from "./slack/app.js";
 import { registerSlackHandlers } from "./slack/commands.js";
+import { startPoller } from "./poller.js";
+import { handleTriageComplete, handleJobComplete } from "./pipeline.js";
 
 const app: Express = express();
 app.use(express.json());
@@ -34,6 +36,27 @@ try {
 } catch (err) {
   console.warn("[orchestrator] Slack disabled:", (err as Error).message);
 }
+
+// Start poller
+startPoller({
+  onComplete: async (session) => {
+    if (session.session_type === "triage") {
+      await handleTriageComplete({
+        devin_session_id: session.devin_session_id,
+        issue_id: session.issue_id,
+        structured_output: session.structured_output,
+      });
+    } else if (session.session_type === "job") {
+      await handleJobComplete({
+        devin_session_id: session.devin_session_id,
+        issue_id: session.issue_id,
+        structured_output: session.structured_output,
+        pull_requests: session.pull_requests,
+      });
+    }
+  },
+  intervalMs: 15_000,
+});
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {

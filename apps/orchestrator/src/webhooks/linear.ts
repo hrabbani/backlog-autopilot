@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { checkPolicyBlock } from "../triage.js";
 import { logEvent } from "../ledger.js";
+import { triggerTriage } from "../pipeline.js";
 
 interface LinearWebhookPayload {
   action: string;
@@ -86,5 +87,15 @@ function processWebhook(payload: LinearWebhookPayload): void {
 
   // Dispatch to triage pipeline
   console.log(`[webhook] Dispatching triage for ${issue.identifier}`);
-  // TODO: Wire up to pipeline.triggerTriage(issue)
+  triggerTriage({
+    identifier: issue.identifier,
+    title: issue.title,
+    description: issue.description,
+    url: issue.url,
+    priority: issue.priority,
+    labels,
+    dueDate: issue.dueDate,
+  }).catch((err) => {
+    console.error(`[webhook] Failed to trigger triage for ${issue.identifier}:`, err);
+  });
 }

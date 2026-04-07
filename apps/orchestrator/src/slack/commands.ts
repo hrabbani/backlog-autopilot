@@ -29,7 +29,6 @@ export function registerSlackHandlers(app: App): void {
 
       // The actual triage will be triggered by the pipeline module
       // This just acknowledges the command
-      // TODO: Wire up to pipeline.triggerTriage(issueIdentifier)
     } else if (text.includes("digest")) {
       const oneWeekAgo = new Date(
         Date.now() - 7 * 24 * 60 * 60 * 1000
@@ -74,7 +73,6 @@ export function registerSlackHandlers(app: App): void {
       replace_original: false,
     });
 
-    // TODO: Wire up to pipeline.dispatchJob(payload.issue_id)
   });
 
   // I'll Handle This button
@@ -94,7 +92,6 @@ export function registerSlackHandlers(app: App): void {
       replace_original: false,
     });
 
-    // TODO: Wire up to pipeline.humanClaim(payload.issue_id, userId)
   });
 
   // Edit Scope button
@@ -113,7 +110,6 @@ export function registerSlackHandlers(app: App): void {
       replace_original: false,
     });
 
-    // TODO: Wire up to pipeline.editScope(payload.issue_id)
   });
 
   // No-op handlers for link buttons
