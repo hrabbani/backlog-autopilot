@@ -15,6 +15,9 @@ import { TriageOutputSchema } from "@backlog-autopilot/shared";
 export function registerSlackHandlers(app: App): void {
   // @BacklogAutopilot triage <issue>
   app.event("app_mention", async ({ event, say }) => {
+    // Ignore threaded replies — those are handled by the message handler (e.g. clarification replies)
+    if (event.thread_ts) return;
+
     const text = event.text.toLowerCase();
 
     if (text.includes("triage")) {
