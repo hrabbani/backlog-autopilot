@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express, { type Express } from "express";
 import { loadBlueprint } from "./config.js";
+import { getDb } from "./db.js";
 
 const app: Express = express();
 app.use(express.json());
@@ -18,6 +19,10 @@ console.log(
 console.log(
   `[orchestrator] Policy blocked paths: ${blueprint.policy.blocked_paths.join(", ")}`
 );
+
+// Initialize DB
+getDb();
+console.log("[orchestrator] Database initialized");
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
