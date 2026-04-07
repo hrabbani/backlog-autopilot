@@ -6,6 +6,7 @@ import { postMessage, postWithThread, postLogMessage, getSlackApp } from "./app.
 import { buildTriageMainBlocks, buildTriageDetailBlocks, buildLogOneLiner } from "./messages.js";
 import { loadBlueprint } from "../config.js";
 import { addLearnedPattern } from "../routing.js";
+import { getIssueByIdentifier, assignIssue } from "../linear.js";
 import { TriageOutputSchema } from "@backlog-autopilot/shared";
 
 /**
@@ -48,8 +49,8 @@ export function registerSlackHandlers(app: App): void {
       ).toISOString();
       const digest = getDigest(oneWeekAgo);
 
-      await say({
-        text: [
+      await say(
+        [
           "*Weekly Digest*",
           `Issues triaged: ${digest.issues_triaged}`,
           `Fixes dispatched: ${digest.jobs_dispatched}`,
@@ -58,9 +59,8 @@ export function registerSlackHandlers(app: App): void {
           `Human-claimed: ${digest.human_claimed}`,
           `Policy blocked: ${digest.policy_blocked}`,
           `Routing corrections: ${digest.routing_corrections}`,
-        ].join("\n"),
-        thread_ts: event.ts,
-      });
+        ].join("\n")
+      );
     } else {
       await say({
         text: "Commands: `triage <ISSUE-ID>`, `digest`",
@@ -184,6 +184,129 @@ export function registerSlackHandlers(app: App): void {
       await postMessage({
         channel: channelId,
         text: `Reply in this thread to refine the scope for ${payload.issue_id}. I'll pick up your instructions.`,
+        thread_ts: messageTs,
+      });
+    }
+  });
+
+  // Override & Dispatch button (policy block override)
+  app.action("override_policy", async ({ ack, body }) => {
+    await ack();
+    let payload: { issue_id: string };
+    try {
+      payload = JSON.parse((body as any).actions[0].value);
+    } catch {
+      return;
+    }
+    const userId = (body as any).user?.id ?? "unknown";
+    const messageTs = (body as any).message?.ts as string | undefined;
+    const channelId = (body as any).channel?.id as string | undefined;
+
+    if (channelId && messageTs) {
+      await postMessage({
+        channel: channelId,
+        text: `Policy override by <@${userId}>. Dispatching fix anyway...`,
+        thread_ts: messageTs,
+      });
+    }
+
+    // Look up triage output from ledger
+    const triageEvent = getDb()
+      .prepare(
+        "SELECT metadata, devin_session_url FROM ledger_events WHERE issue_id = @issueId AND action = 'triage_completed' ORDER BY timestamp DESC LIMIT 1"
+      )
+      .get({ issueId: payload.issue_id }) as { metadata: string; devin_session_url: string } | undefined;
+
+    if (triageEvent?.metadata) {
+      const meta = JSON.parse(triageEvent.metadata);
+      const parseResult = TriageOutputSchema.safeParse(meta.triage_output);
+      if (parseResult.success) {
+        logEvent({
+          issue_id: payload.issue_id,
+          issue_title: "",
+          action: "policy_overridden",
+          path: "path_4_policy_block",
+          confidence: parseResult.data.confidence,
+          routing_rule_applied: null,
+          responsible_team: parseResult.data.responsible_team,
+          devin_session_id: null,
+          devin_session_url: null,
+          pr_url: null,
+          metadata: { overridden_by: userId },
+        });
+
+        const approvalThread = channelId && messageTs
+          ? { channel: channelId, messageTs }
+          : undefined;
+
+        dispatchJob(
+          payload.issue_id,
+          parseResult.data,
+          triageEvent.devin_session_url ?? "",
+          approvalThread
+        ).catch((err) => {
+          console.error(`[slack] Failed to dispatch job for ${payload.issue_id}:`, err);
+        });
+      }
+    }
+  });
+
+  // I'll Take This button — assign Linear issue to the Slack user
+  app.action("claim_and_assign", async ({ ack, body }) => {
+    await ack();
+    let payload: { issue_id: string; issue_title: string };
+    try {
+      payload = JSON.parse((body as any).actions[0].value);
+    } catch {
+      return;
+    }
+    const userId = (body as any).user?.id ?? "unknown";
+    const messageTs = (body as any).message?.ts as string | undefined;
+    const channelId = (body as any).channel?.id as string | undefined;
+
+    // Log the claim
+    logEvent({
+      issue_id: payload.issue_id,
+      issue_title: payload.issue_title,
+      action: "human_claimed",
+      path: "path_4_policy_block",
+      confidence: null,
+      routing_rule_applied: null,
+      responsible_team: null,
+      devin_session_id: null,
+      devin_session_url: null,
+      pr_url: null,
+      metadata: { claimed_by: userId },
+    });
+
+    // Try to assign in Linear by looking up user email from Slack
+    let assignmentNote = "";
+    try {
+      const slackApp = getSlackApp();
+      const userInfo = await slackApp.client.users.info({ user: userId });
+      const email = userInfo.user?.profile?.email;
+
+      if (email) {
+        const linearIssue = await getIssueByIdentifier(payload.issue_id);
+        if (linearIssue) {
+          const { LinearClient } = await import("@linear/sdk");
+          const linearClient = new LinearClient({ apiKey: process.env.LINEAR_API_KEY! });
+          const users = await linearClient.users({ filter: { email: { eq: email } } });
+          const linearUser = users.nodes[0];
+          if (linearUser) {
+            await assignIssue(linearIssue.id, linearUser.id);
+            assignmentNote = ` I've assigned it to you in Linear.`;
+          }
+        }
+      }
+    } catch (err) {
+      console.error(`[slack] Failed to assign Linear issue:`, err);
+    }
+
+    if (channelId && messageTs) {
+      await postMessage({
+        channel: channelId,
+        text: `<@${userId}> is taking this one. I'll stand down on ${payload.issue_id}.${assignmentNote}`,
         thread_ts: messageTs,
       });
     }

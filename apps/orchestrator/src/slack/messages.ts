@@ -38,6 +38,8 @@ export function buildTriageMainBlocks(params: {
   summary: string;
   buttons?: boolean;
   correctRoutingButton?: boolean;
+  overrideButton?: boolean;
+  claimButton?: boolean;
 }): Array<Record<string, unknown>> {
   const blocks: Array<Record<string, unknown>> = [
     {
@@ -49,7 +51,8 @@ export function buildTriageMainBlocks(params: {
     },
   ];
 
-  if (params.buttons || params.correctRoutingButton) {
+  const hasActions = params.buttons || params.correctRoutingButton || params.overrideButton || params.claimButton;
+  if (hasActions) {
     const elements: Array<Record<string, unknown>> = [];
 
     if (params.buttons) {
@@ -77,12 +80,33 @@ export function buildTriageMainBlocks(params: {
       );
     }
 
-    elements.push({
-      type: "button",
-      text: { type: "plain_text", text: "Correct Routing" },
-      action_id: "correct_routing",
-      value: JSON.stringify({ issue_id: params.issueId, issue_title: params.issueTitle }),
-    });
+    if (params.overrideButton) {
+      elements.push({
+        type: "button",
+        text: { type: "plain_text", text: "Override & Dispatch" },
+        style: "primary",
+        action_id: "override_policy",
+        value: JSON.stringify({ issue_id: params.issueId }),
+      });
+    }
+
+    if (params.claimButton) {
+      elements.push({
+        type: "button",
+        text: { type: "plain_text", text: "I'll Take This" },
+        action_id: "claim_and_assign",
+        value: JSON.stringify({ issue_id: params.issueId, issue_title: params.issueTitle }),
+      });
+    }
+
+    if (params.correctRoutingButton) {
+      elements.push({
+        type: "button",
+        text: { type: "plain_text", text: "Correct Routing" },
+        action_id: "correct_routing",
+        value: JSON.stringify({ issue_id: params.issueId, issue_title: params.issueTitle }),
+      });
+    }
 
     blocks.push({ type: "actions", elements });
   }
