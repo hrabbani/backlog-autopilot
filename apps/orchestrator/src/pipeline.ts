@@ -398,14 +398,14 @@ export async function handleJobComplete(params: {
       )
       .get({ issueId: params.issue_id }) as { metadata: string } | undefined;
 
-    let teamChannel = blueprint.notifications.log_channel;
+    let prChannel = blueprint.notifications.log_channel;
     let triageOutput: TriageOutput | undefined;
     if (triageEvent?.metadata) {
       const meta = JSON.parse(triageEvent.metadata);
       triageOutput = meta.triage_output;
       const team = triageOutput?.responsible_team;
-      if (team && blueprint.notifications.team_channels[team]) {
-        teamChannel = blueprint.notifications.team_channels[team];
+      if (team && blueprint.notifications.pr_channels[team]) {
+        prChannel = blueprint.notifications.pr_channels[team];
       }
     }
 
@@ -427,7 +427,7 @@ export async function handleJobComplete(params: {
     }
 
     await postMessage({
-      channel: teamChannel,
+      channel: prChannel,
       text: `PR ready for review: ${params.issue_id}`,
       blocks: buildPRNotification({
         issueId: params.issue_id,
@@ -445,7 +445,7 @@ export async function handleJobComplete(params: {
       buildLogOneLiner({
         issueId: params.issue_id,
         action: "PR opened",
-        detail: `<${prUrl}|View PR>, review in ${teamChannel}`,
+        detail: `<${prUrl}|View PR>, review in ${prChannel}`,
       })
     );
   }

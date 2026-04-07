@@ -42,6 +42,7 @@ export const BlueprintSchema = z.object({
   }),
   notifications: z.object({
     team_channels: z.record(z.string()),
+    pr_channels: z.record(z.string()),
     log_channel: z.string(),
   }),
 });

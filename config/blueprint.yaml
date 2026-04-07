@@ -36,6 +36,11 @@ job:
 
 notifications:
   team_channels:
+    team-ai: "#team-ai"
+    team-platform: "#team-platform"
+    team-frontend: "#team-frontend"
+    team-sdk: "#team-sdk"
+  pr_channels:
     team-ai: "#team-ai-pr-reviews"
     team-platform: "#team-platform-pr-reviews"
     team-frontend: "#team-frontend-pr-reviews"
