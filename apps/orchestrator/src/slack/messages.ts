@@ -37,6 +37,7 @@ export function buildTriageMainBlocks(params: {
   issueUrl: string;
   summary: string;
   buttons?: boolean;
+  correctRoutingButton?: boolean;
 }): Array<Record<string, unknown>> {
   const blocks: Array<Record<string, unknown>> = [
     {
@@ -48,10 +49,11 @@ export function buildTriageMainBlocks(params: {
     },
   ];
 
-  if (params.buttons) {
-    blocks.push({
-      type: "actions",
-      elements: [
+  if (params.buttons || params.correctRoutingButton) {
+    const elements: Array<Record<string, unknown>> = [];
+
+    if (params.buttons) {
+      elements.push(
         {
           type: "button",
           text: { type: "plain_text", text: "Approve Fix" },
@@ -72,8 +74,17 @@ export function buildTriageMainBlocks(params: {
           action_id: "human_claim",
           value: JSON.stringify({ issue_id: params.issueId }),
         },
-      ],
+      );
+    }
+
+    elements.push({
+      type: "button",
+      text: { type: "plain_text", text: "Correct Routing" },
+      action_id: "correct_routing",
+      value: JSON.stringify({ issue_id: params.issueId, issue_title: params.issueTitle }),
     });
+
+    blocks.push({ type: "actions", elements });
   }
 
   return blocks;

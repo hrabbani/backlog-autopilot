@@ -338,6 +338,7 @@ export async function handleTriageComplete(params: {
           issueTitle: issueInfo.title,
           issueUrl: issueInfo.url,
           summary: `${humanize(blockedBy)}. I've provided a triage brief in the thread to help with investigation.`,
+          correctRoutingButton: true,
         }),
         threadText: `Triage details for ${issue_id}`,
         threadBlocks: buildTriageDetailBlocks({
