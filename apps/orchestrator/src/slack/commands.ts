@@ -480,17 +480,4 @@ async function handleClarificationReply(
     }
   );
 
-  // Log to updates channel
-  const blueprint = loadBlueprint();
-  const issueUrl = `https://linear.app/tailored-sdk/issue/${clarificationEvent.issue_id}`;
-  await postLogMessage(
-    blueprint.notifications.log_channel,
-    buildLogOneLiner({
-      issueId: clarificationEvent.issue_id,
-      issueTitle: "",
-      issueUrl,
-      action: "Clarification received, auto-dispatched",
-      detail: `context from <@${userId}>`,
-    })
-  );
 }

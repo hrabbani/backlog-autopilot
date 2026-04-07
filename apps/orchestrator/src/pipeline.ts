@@ -465,7 +465,9 @@ export async function dispatchJob(
       issueId,
       issueTitle: issueInfo.title,
       issueUrl: issueInfo.url,
-      action: "I started working on a fix",
+      action: clarificationContext
+        ? `Clarification from <@${clarificationContext.userId}> received, dispatching fix`
+        : "I started working on a fix",
       detail: `<${session.url}|View session>`,
     })
   );
