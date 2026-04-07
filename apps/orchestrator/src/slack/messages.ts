@@ -153,7 +153,7 @@ export function buildPRNotification(params: {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*<${prUrl}|${prTitle ?? issueTitle}>*\nI opened a PR for <${issueUrl}|${issueId}>\n${stats}`,
+        text: `*<${prUrl}|${prTitle ?? issueTitle}>*\nI opened a PR for <${issueUrl}|${issueId}> — could someone please stamp it?\n${stats}`,
       },
     },
   ];
