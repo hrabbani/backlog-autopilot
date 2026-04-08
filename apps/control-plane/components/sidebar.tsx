@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, Settings, BarChart3 } from "lucide-react";
+import { Activity, Settings, BarChart3, Clock } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "Audit Trail", icon: Activity },
   { href: "/metrics", label: "Metrics", icon: BarChart3 },
+  { href: "/scheduling", label: "Scheduling", icon: Clock },
 ] as const;
 
 const bottomItems = [
