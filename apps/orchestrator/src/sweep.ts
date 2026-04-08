@@ -1,7 +1,6 @@
 import { getBacklogIssues, getIssueByIdentifier } from "./linear.js";
 import { triggerTriage } from "./pipeline.js";
 import { getDb } from "./db.js";
-import { loadBlueprint } from "./config.js";
 
 interface SweepOptions {
   issues?: string[];
@@ -15,7 +14,6 @@ interface SweepResult {
 }
 
 export async function runSweep(options: SweepOptions = {}): Promise<SweepResult> {
-  const blueprint = loadBlueprint();
   const db = getDb();
   const limit = options.limit ?? 4;
 
@@ -71,7 +69,7 @@ export async function runSweep(options: SweepOptions = {}): Promise<SweepResult>
     }
 
     console.log(`[sweep] Querying backlog for team ${teamId}, limit ${limit}`);
-    const backlogIssues = await getBacklogIssues(teamId, { limit: limit * 2 });
+    const backlogIssues = await getBacklogIssues(teamId, { limit: 50 });
 
     issueData = await Promise.all(
       backlogIssues.map(async (issue) => {

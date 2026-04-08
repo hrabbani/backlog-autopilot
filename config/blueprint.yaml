@@ -1,17 +1,6 @@
 version: 1
 
-intake:
-  sources:
-    - type: linear_webhook
-      project: "TAIL"
-      events: ["issue.created", "issue.updated"]
-    - type: scheduled_sweep
-      cron: "0 9 * * 1-5"
-      sort_by: ["due_date", "priority", "age"]
-
 triage:
-  playbook_id: "PLACEHOLDER"
-  knowledge_ids: ["PLACEHOLDER"]
   auto_dispatch_threshold:
     max_complexity: "medium"
     requires: ["safe_to_autofix", "!requires_product_decision"]
@@ -21,13 +10,6 @@ policy:
     - "supabase/migrations/*"
     - "packages/ai/src/prompts/*"
   blocked_labels: ["compliance", "auth", "billing"]
-
-job:
-  playbook_id: "PLACEHOLDER"
-  max_ci_attempts: 2
-  evidence:
-    ui_changes: "video"
-    backend_changes: "test_logs"
 
 notifications:
   team_channels:
