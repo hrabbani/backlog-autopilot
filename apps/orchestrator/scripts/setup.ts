@@ -154,7 +154,21 @@ IMPORTANT: When filling in the "responsible_team" field in the structured output
   }
   console.log(`  Team directory: ${teamNoteId}`);
 
-  // 5. Summary
+  // 5. Store Linear team ID for sweep queries
+  const { getLinearClient } = await import("../src/linear.js");
+  const linear = getLinearClient();
+  const teamsResult = await linear.teams();
+  const tailoredTeam = teamsResult.nodes.find((t: any) => t.key === "TAI");
+  if (tailoredTeam) {
+    db.prepare(
+      "INSERT OR REPLACE INTO config_store (key, value) VALUES ('linear_team_id', @value)"
+    ).run({ value: tailoredTeam.id });
+    console.log(`[setup] Stored linear_team_id: ${tailoredTeam.id}`);
+  } else {
+    console.warn("[setup] Could not find TAI team in Linear");
+  }
+
+  // 6. Summary
   console.log("\n=== Setup Complete ===");
   console.log(`Triage playbook: ${triagePlaybookId}`);
   console.log(`Job playbook:    ${jobPlaybookId}`);
