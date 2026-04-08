@@ -7,6 +7,7 @@ import { getSlackApp, startSlackApp } from "./slack/app.js";
 import { registerSlackHandlers } from "./slack/commands.js";
 import { startPoller } from "./poller.js";
 import { handleTriageComplete, handleJobComplete } from "./pipeline.js";
+import { runSweep } from "./sweep.js";
 
 const app: Express = express();
 app.use(express.json());
@@ -18,6 +19,23 @@ app.get("/health", (_req, res) => {
 
 // Linear webhook
 app.post("/api/webhooks/linear", handleLinearWebhook);
+
+// Sweep trigger
+app.post("/api/sweep", async (req, res) => {
+  try {
+    const { issues, limit } = req.body ?? {};
+    console.log("[orchestrator] Sweep triggered via API");
+    const result = await runSweep({
+      issues: issues as string[] | undefined,
+      limit: limit as number | undefined,
+    });
+    res.json({ status: "ok", ...result });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[orchestrator] Sweep API error:", message);
+    res.status(500).json({ status: "error", error: message });
+  }
+});
 
 // Load config on startup
 const blueprint = loadBlueprint();
