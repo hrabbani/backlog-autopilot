@@ -9,7 +9,8 @@
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "setup": "tsx scripts/setup.ts",
-    "demo:trigger": "tsx scripts/demo-trigger.ts"
+    "sweep": "tsx scripts/sweep.ts",
+    "check-env": "tsx scripts/check-env.ts"
   },
   "dependencies": {
     "@backlog-autopilot/shared": "workspace:*",
