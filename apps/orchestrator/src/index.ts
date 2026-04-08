@@ -20,6 +20,26 @@ app.get("/health", (_req, res) => {
 // Linear webhook
 app.post("/api/webhooks/linear", handleLinearWebhook);
 
+// Recent ledger events (for dashboard live view)
+app.get("/api/logs", (_req, res) => {
+  try {
+    const db = getDb();
+    const rows = db
+      .prepare(
+        "SELECT * FROM ledger_events ORDER BY timestamp DESC LIMIT 50"
+      )
+      .all() as Array<Record<string, unknown>>;
+    const events = rows.map((row) => ({
+      ...row,
+      metadata: row.metadata ? JSON.parse(row.metadata as string) : null,
+    }));
+    res.json({ events });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: message });
+  }
+});
+
 // Sweep trigger
 app.post("/api/sweep", async (req, res) => {
   try {

@@ -32,7 +32,13 @@ export async function postMessage(params: {
   blocks?: Array<Record<string, unknown>>;
   thread_ts?: string;
 }): Promise<string | undefined> {
-  const app = getSlackApp();
+  let app: App;
+  try {
+    app = getSlackApp();
+  } catch {
+    console.log(`[slack] (not connected) #${params.channel}: ${params.text}`);
+    return undefined;
+  }
   const result = await app.client.chat.postMessage({
     channel: params.channel,
     text: params.text,

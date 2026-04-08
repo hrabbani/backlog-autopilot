@@ -1,5 +1,5 @@
 import { getLedgerEvents } from "@/lib/db";
-import { GitPullRequest, Monitor } from "lucide-react";
+import { GitPullRequest, Monitor, Bot, User } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -22,9 +22,11 @@ export default function AuditTrailPage() {
               <tr className="border-b border-devin-border text-devin-text-secondary">
                 <th className="text-left py-3 px-4 font-medium text-[13px]">Time</th>
                 <th className="text-left py-3 px-4 font-medium text-[13px]">Issue</th>
+                <th className="text-left py-3 px-4 font-medium text-[13px]">Title</th>
                 <th className="text-left py-3 px-4 font-medium text-[13px]">Action</th>
                 <th className="text-left py-3 px-4 font-medium text-[13px]">Path</th>
                 <th className="text-left py-3 px-4 font-medium text-[13px]">Team</th>
+                <th className="text-left py-3 px-4 font-medium text-[13px]">Resolved By</th>
                 <th className="text-left py-3 px-4 font-medium text-[13px]">Links</th>
               </tr>
             </thead>
@@ -32,7 +34,7 @@ export default function AuditTrailPage() {
               {events.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={8}
                     className="text-center py-12 text-devin-text-secondary"
                   >
                     No events yet. Trigger a triage to get started.
@@ -47,8 +49,18 @@ export default function AuditTrailPage() {
                     <td className="py-3 px-4 text-devin-text-secondary text-[13px]">
                       {new Date(event.timestamp).toLocaleString()}
                     </td>
-                    <td className="py-3 px-4 font-mono text-[13px] text-devin-text-primary">
-                      {event.issue_id}
+                    <td className="py-3 px-4 font-mono text-[13px]">
+                      <a
+                        href={`https://linear.app/tailored-sdk/issue/${event.issue_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-devin-accent hover:text-devin-accent-bright transition-colors"
+                      >
+                        {event.issue_id}
+                      </a>
+                    </td>
+                    <td className="py-3 px-4 text-[13px] text-devin-text-primary max-w-[250px] truncate" title={event.issue_title ?? ""}>
+                      {event.issue_title || "—"}
                     </td>
                     <td className="py-3 px-4">
                       <span
@@ -62,6 +74,9 @@ export default function AuditTrailPage() {
                     </td>
                     <td className="py-3 px-4 text-devin-text-secondary text-[13px]">
                       {event.responsible_team ?? "—"}
+                    </td>
+                    <td className="py-3 px-4">
+                      {getResolvedBy(event)}
                     </td>
                     <td className="py-3 px-4 flex items-center gap-3">
                       {event.devin_session_url && (
@@ -98,6 +113,32 @@ export default function AuditTrailPage() {
   );
 }
 
+function getResolvedBy(event: { action: string; metadata: Record<string, unknown> | null }) {
+  const devinActions = ["auto_dispatched", "approval_granted", "job_started", "pr_created", "pr_merged", "policy_overridden", "clarification_resolved"];
+  const humanActions = ["human_claimed"];
+
+  if (devinActions.includes(event.action)) {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[12px] font-medium bg-devin-accent/10 text-devin-accent">
+        <Bot size={12} />
+        Devin
+      </span>
+    );
+  }
+
+  if (humanActions.includes(event.action)) {
+    const claimedBy = event.metadata?.claimed_by as string | undefined;
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[12px] font-medium bg-purple-500/10 text-purple-400">
+        <User size={12} />
+        {claimedBy ?? "Human"}
+      </span>
+    );
+  }
+
+  return <span className="text-devin-text-secondary text-[13px]">—</span>;
+}
+
 function getActionColor(action: string): string {
   const colors: Record<string, string> = {
     auto_dispatched: "bg-emerald-500/10 text-emerald-400",
@@ -105,7 +146,9 @@ function getActionColor(action: string): string {
     approval_granted: "bg-emerald-500/10 text-emerald-400",
     approval_declined: "bg-red-500/10 text-red-400",
     policy_blocked: "bg-red-500/10 text-red-400",
+    policy_overridden: "bg-devin-amber/10 text-devin-amber",
     clarification_requested: "bg-devin-accent/10 text-devin-accent",
+    clarification_resolved: "bg-emerald-500/10 text-emerald-400",
     human_claimed: "bg-purple-500/10 text-purple-400",
     pr_created: "bg-emerald-500/10 text-emerald-400",
     pr_merged: "bg-emerald-500/10 text-emerald-400",

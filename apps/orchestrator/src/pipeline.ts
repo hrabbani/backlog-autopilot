@@ -47,34 +47,10 @@ export async function triggerTriage(issue: {
   const blueprint = loadBlueprint();
   const db = getDb();
 
-  // Pre-pass: policy block check from labels
+  // Pre-pass: policy block check from labels (flag only, don't stop — still triage for team routing)
   const policyBlock = checkPolicyBlock(issue.labels);
   if (policyBlock) {
-    logEvent({
-      issue_id: issue.identifier,
-      issue_title: issue.title,
-      action: "policy_blocked",
-      path: "path_4_policy_block",
-      confidence: null,
-      routing_rule_applied: null,
-      responsible_team: null,
-      devin_session_id: null,
-      devin_session_url: null,
-      pr_url: null,
-      metadata: { blocked_by: policyBlock, source: "label_prepass" },
-    });
-
-    await postLogMessage(
-      blueprint.notifications.log_channel,
-      buildLogOneLiner({
-        issueId: issue.identifier,
-        issueTitle: issue.title,
-        issueUrl: issue.url,
-        action: "Policy blocked",
-        detail: humanize(policyBlock),
-      })
-    );
-    return;
+    console.log(`[pipeline] Policy flag for ${issue.identifier}: ${policyBlock} (will triage for team routing)`);
   }
 
   // Get stored config
@@ -128,7 +104,7 @@ export async function triggerTriage(issue: {
     devin_session_id: session.session_id,
     devin_session_url: session.url,
     pr_url: null,
-    metadata: null,
+    metadata: policyBlock ? { policy_flag: policyBlock } : null,
   });
 
   await postLogMessage(
@@ -143,7 +119,7 @@ export async function triggerTriage(issue: {
   );
 
   console.log(
-    `[pipeline] Triage session created for ${issue.identifier}: ${session.session_id}`
+    `[pipeline] Triage session created for ${issue.identifier}: ${session.session_id}\n           ${session.url}`
   );
 }
 
@@ -189,8 +165,21 @@ export async function handleTriageComplete(params: {
     metadata: { triage_output: triage },
   });
 
-  // Decision gate
-  const decision = makeDecision(triage);
+  // Check for pre-pass policy flag (stored in triage_started metadata)
+  const triageStartedEvent = getDb()
+    .prepare(
+      "SELECT metadata FROM ledger_events WHERE issue_id = @issueId AND action = 'triage_started' ORDER BY timestamp DESC LIMIT 1"
+    )
+    .get({ issueId: issue_id }) as { metadata: string | null } | undefined;
+
+  const policyFlag = triageStartedEvent?.metadata
+    ? (JSON.parse(triageStartedEvent.metadata) as Record<string, unknown>)?.policy_flag as string | undefined
+    : undefined;
+
+  // Decision gate — policy flag overrides makeDecision
+  const decision: TriageDecision = policyFlag
+    ? { path: "path_4_policy_block", reason: `Policy block: ${policyFlag}`, blocked_by: policyFlag }
+    : makeDecision(triage);
   console.log(`[pipeline] Decision for ${issue_id}: ${decision.path} — ${decision.reason}`);
 
   const teamChannel =
@@ -375,7 +364,8 @@ export async function dispatchJob(
   triage: TriageOutput,
   triageSessionUrl: string,
   approvalThread?: { channel: string; messageTs: string },
-  clarificationContext?: { text: string; userId: string; channel: string; messageTs: string }
+  clarificationContext?: { text: string; userId: string; channel: string; messageTs: string },
+  approvedBy?: string
 ): Promise<void> {
   const db = getDb();
   const jobPlaybookId = (
@@ -442,21 +432,43 @@ export async function dispatchJob(
     metadata: null,
   });
 
-  // Notify team channel that a fix is in progress
+  // Notify team channel — check for routing correction first
   const blueprint = loadBlueprint();
+  const correctionEvent = getDb()
+    .prepare(
+      "SELECT responsible_team FROM ledger_events WHERE issue_id = @issueId AND action = 'routing_corrected' ORDER BY timestamp DESC LIMIT 1"
+    )
+    .get({ issueId }) as { responsible_team: string } | undefined;
+  const effectiveTeam = correctionEvent?.responsible_team ?? triage.responsible_team;
   const teamChannel =
-    blueprint.notifications.team_channels[triage.responsible_team] ??
+    blueprint.notifications.team_channels[effectiveTeam] ??
     blueprint.notifications.log_channel;
+
+  // Build context-aware messaging
+  const titleSuffix = issueInfo.title ? ` — ${issueInfo.title}` : "";
+  let headline: string;
+  let logAction: string;
+
+  if (clarificationContext) {
+    headline = `Dispatched by <@${clarificationContext.userId}>'s clarification to fix <${issueInfo.url}|${issueId}>${titleSuffix}`;
+    logAction = `Clarification from <@${clarificationContext.userId}> received, dispatching fix`;
+  } else if (approvedBy) {
+    headline = `Dispatched by <@${approvedBy}> to fix <${issueInfo.url}|${issueId}>${titleSuffix}`;
+    logAction = `Approved by <@${approvedBy}>, dispatching fix`;
+  } else {
+    headline = `Auto-fixing <${issueInfo.url}|${issueId}>${titleSuffix}`;
+    logAction = "Auto-dispatched fix";
+  }
 
   await postMessage({
     channel: teamChannel,
-    text: `I'm working on a fix for ${issueId}`,
+    text: headline,
     blocks: [
       {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `*I'm working on a fix for <${issueInfo.url}|${issueId}>*${issueInfo.title ? ` — ${issueInfo.title}` : ""}\n\nComplexity: ${triage.complexity}\n<${session.url}|Follow along as I work on this>`,
+          text: `*${headline}*\n\nComplexity: ${triage.complexity}\n<${session.url}|Follow along as I work on this>`,
         },
       },
     ],
@@ -468,15 +480,13 @@ export async function dispatchJob(
       issueId,
       issueTitle: issueInfo.title,
       issueUrl: issueInfo.url,
-      action: clarificationContext
-        ? `Clarification from <@${clarificationContext.userId}> received, dispatching fix`
-        : "I started working on a fix",
+      action: logAction,
       detail: `<${session.url}|View session>`,
     })
   );
 
   console.log(
-    `[pipeline] Fix session created for ${issueId}: ${session.session_id}`
+    `[pipeline] Fix session created for ${issueId}: ${session.session_id}\n           ${session.url}`
   );
 }
 

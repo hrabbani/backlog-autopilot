@@ -66,12 +66,6 @@ export function buildTriageMainBlocks(params: {
         },
         {
           type: "button",
-          text: { type: "plain_text", text: "Edit Scope" },
-          action_id: "edit_scope",
-          value: JSON.stringify({ issue_id: params.issueId }),
-        },
-        {
-          type: "button",
           text: { type: "plain_text", text: "I'll Handle This" },
           style: "danger",
           action_id: "human_claim",

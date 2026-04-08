@@ -13,7 +13,8 @@ You are triaging a backlog issue for the Tailored project. Your job is to unders
 7. Assess your confidence (0.0-1.0) in your understanding and proposed fix.
 8. Determine which team should own this based on the routing rules and team directory in your Knowledge.
 9. Fill in ALL fields of the structured output schema.
-10. Once the structured output is complete, finish the session. Do not wait for further instructions.
+10. After filling in the structured output, print the complete structured output as a formatted JSON block in the session chat for visibility.
+11. Once the structured output is complete, finish the session. Do not wait for further instructions.
 
 ## Specifications
 

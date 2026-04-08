@@ -10,6 +10,38 @@ import { getIssueByIdentifier, assignIssue } from "../linear.js";
 import { TriageOutputSchema } from "@backlog-autopilot/shared";
 
 /**
+ * Replace action buttons in a message with a status line after a button is clicked.
+ */
+async function dismissButtons(
+  channelId: string | undefined,
+  messageTs: string | undefined,
+  originalBlocks: Array<Record<string, unknown>>,
+  statusText: string
+): Promise<void> {
+  if (!channelId || !messageTs) return;
+  try {
+    const slackApp = getSlackApp();
+    // Keep non-actions blocks, replace actions block with a context status line
+    const updatedBlocks = originalBlocks
+      .filter((b) => b.type !== "actions")
+      .concat([
+        {
+          type: "context",
+          elements: [{ type: "mrkdwn", text: statusText }],
+        },
+      ]);
+    await slackApp.client.chat.update({
+      channel: channelId,
+      ts: messageTs,
+      blocks: updatedBlocks as any,
+      text: statusText,
+    });
+  } catch (err) {
+    console.warn("[slack] Failed to dismiss buttons:", (err as Error).message);
+  }
+}
+
+/**
  * Register all Slack command and action handlers.
  * Call this during app startup.
  */
@@ -82,7 +114,10 @@ export function registerSlackHandlers(app: App): void {
     const messageTs = (body as any).message?.ts as string | undefined;
     const channelId = (body as any).channel?.id as string | undefined;
 
-    // Post approval confirmation as thread reply
+    // Dismiss buttons and post confirmation
+    const originalBlocks = (body as any).message?.blocks ?? [];
+    await dismissButtons(channelId, messageTs, originalBlocks, `Approved by <@${userId}>`);
+
     if (channelId && messageTs) {
       await postMessage({
         channel: channelId,
@@ -124,7 +159,9 @@ export function registerSlackHandlers(app: App): void {
           payload.issue_id,
           parseResult.data,
           triageEvent.devin_session_url ?? "",
-          approvalThread
+          approvalThread,
+          undefined,
+          userId
         ).catch((err) => {
           console.error(`[slack] Failed to dispatch job for ${payload.issue_id}:`, err);
         });
@@ -144,6 +181,9 @@ export function registerSlackHandlers(app: App): void {
     const userId = (body as any).user?.id ?? "unknown";
     const messageTs = (body as any).message?.ts as string | undefined;
     const channelId = (body as any).channel?.id as string | undefined;
+
+    const originalBlocks = (body as any).message?.blocks ?? [];
+    await dismissButtons(channelId, messageTs, originalBlocks, `Claimed by <@${userId}>`);
 
     if (channelId && messageTs) {
       await postMessage({
@@ -168,27 +208,6 @@ export function registerSlackHandlers(app: App): void {
     });
   });
 
-  // Edit Scope button
-  app.action("edit_scope", async ({ ack, body }) => {
-    await ack();
-    let payload: { issue_id: string };
-    try {
-      payload = JSON.parse((body as any).actions[0].value);
-    } catch {
-      return;
-    }
-    const messageTs = (body as any).message?.ts as string | undefined;
-    const channelId = (body as any).channel?.id as string | undefined;
-
-    if (channelId && messageTs) {
-      await postMessage({
-        channel: channelId,
-        text: `Reply in this thread to refine the scope for ${payload.issue_id}. I'll pick up your instructions.`,
-        thread_ts: messageTs,
-      });
-    }
-  });
-
   // Override & Dispatch button (policy block override)
   app.action("override_policy", async ({ ack, body }) => {
     await ack();
@@ -201,6 +220,9 @@ export function registerSlackHandlers(app: App): void {
     const userId = (body as any).user?.id ?? "unknown";
     const messageTs = (body as any).message?.ts as string | undefined;
     const channelId = (body as any).channel?.id as string | undefined;
+
+    const originalBlocks = (body as any).message?.blocks ?? [];
+    await dismissButtons(channelId, messageTs, originalBlocks, `Policy overridden by <@${userId}>`);
 
     if (channelId && messageTs) {
       await postMessage({
@@ -243,7 +265,9 @@ export function registerSlackHandlers(app: App): void {
           payload.issue_id,
           parseResult.data,
           triageEvent.devin_session_url ?? "",
-          approvalThread
+          approvalThread,
+          undefined,
+          userId
         ).catch((err) => {
           console.error(`[slack] Failed to dispatch job for ${payload.issue_id}:`, err);
         });
@@ -263,6 +287,9 @@ export function registerSlackHandlers(app: App): void {
     const userId = (body as any).user?.id ?? "unknown";
     const messageTs = (body as any).message?.ts as string | undefined;
     const channelId = (body as any).channel?.id as string | undefined;
+
+    const originalBlocks = (body as any).message?.blocks ?? [];
+    await dismissButtons(channelId, messageTs, originalBlocks, `Claimed by <@${userId}>`);
 
     // Log the claim
     logEvent({
@@ -436,6 +463,14 @@ export function registerSlackHandlers(app: App): void {
     if (triage) {
       const parseResult = TriageOutputSchema.safeParse(triage);
       if (parseResult.success) {
+        // Check if this was a policy-blocked issue to show the right buttons
+        const policyEvent = getDb()
+          .prepare(
+            "SELECT path FROM ledger_events WHERE issue_id = @issueId AND action = 'policy_blocked' ORDER BY timestamp DESC LIMIT 1"
+          )
+          .get({ issueId: issue_id }) as { path: string } | undefined;
+        const wasPolicyBlocked = !!policyEvent;
+
         await postWithThread({
           channel: correctChannel,
           text: `Routing correction: ${issue_title}`,
@@ -445,7 +480,9 @@ export function registerSlackHandlers(app: App): void {
             issueTitle: issue_title,
             issueUrl,
             summary: `This was originally sent to ${originalTeam} but <@${userId}> corrected the routing. ${parseResult.data.root_cause_hypothesis.split('.')[0]}.`,
-            buttons: true,
+            buttons: !wasPolicyBlocked,
+            overrideButton: wasPolicyBlocked,
+            claimButton: wasPolicyBlocked,
             correctRoutingButton: true,
           }),
           threadText: `Triage details for ${issue_id}`,

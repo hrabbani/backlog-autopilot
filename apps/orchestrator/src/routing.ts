@@ -59,7 +59,7 @@ export async function addLearnedPattern(params: {
     rules += `\n\n${learnedSection}\n`;
   }
 
-  const newRule = `- "${issueTitle}" → ${target_team} (corrected from ${corrected_from_team}, ${learned_from_issue}, by ${corrected_by} on ${new Date().toISOString().split("T")[0]})`;
+  const newRule = `- "${issueTitle}" → ${target_team} (corrected from ${corrected_from_team}, ${learned_from_issue}, ${new Date().toISOString().split("T")[0]})`;
 
   // Remove the placeholder if present
   rules = rules.replace(
