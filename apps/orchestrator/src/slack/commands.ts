@@ -9,6 +9,15 @@ import { addLearnedPattern } from "../routing.js";
 import { getIssueByIdentifier, assignIssue } from "../linear.js";
 import { TriageOutputSchema } from "@backlog-autopilot/shared";
 
+function getIssueTitle(issueId: string): string {
+  const row = getDb()
+    .prepare(
+      "SELECT issue_title FROM ledger_events WHERE issue_id = @issueId AND action = 'triage_started' ORDER BY timestamp DESC LIMIT 1"
+    )
+    .get({ issueId }) as { issue_title: string } | undefined;
+  return row?.issue_title ?? "";
+}
+
 /**
  * Replace action buttons in a message with a status line after a button is clicked.
  */
@@ -139,7 +148,7 @@ export function registerSlackHandlers(app: App): void {
       if (parseResult.success) {
         logEvent({
           issue_id: payload.issue_id,
-          issue_title: "",
+          issue_title: getIssueTitle(payload.issue_id),
           action: "approval_granted",
           path: "path_2_approval",
           confidence: parseResult.data.confidence,
@@ -195,7 +204,7 @@ export function registerSlackHandlers(app: App): void {
 
     logEvent({
       issue_id: payload.issue_id,
-      issue_title: "",
+      issue_title: getIssueTitle(payload.issue_id),
       action: "human_claimed",
       path: "path_2_approval",
       confidence: null,
@@ -245,7 +254,7 @@ export function registerSlackHandlers(app: App): void {
       if (parseResult.success) {
         logEvent({
           issue_id: payload.issue_id,
-          issue_title: "",
+          issue_title: getIssueTitle(payload.issue_id),
           action: "policy_overridden",
           path: "path_4_policy_block",
           confidence: parseResult.data.confidence,
@@ -611,7 +620,7 @@ async function handleClarificationReply(
   // Log clarification resolved
   logEvent({
     issue_id: clarificationEvent.issue_id,
-    issue_title: "",
+    issue_title: getIssueTitle(clarificationEvent.issue_id),
     action: "clarification_resolved",
     path: "path_3_clarification",
     confidence: triage.confidence,

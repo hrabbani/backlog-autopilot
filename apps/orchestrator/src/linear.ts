@@ -80,8 +80,12 @@ export async function getBacklogIssues(
       team: { id: { eq: teamId } },
       state: { type: { in: ["backlog", "unstarted", "triage"] } },
     },
-    orderBy: "priority" as any,
     first: options?.limit ?? 20,
   });
-  return issues.nodes;
+  // Sort by priority (1=Urgent, 2=High, 3=Medium, 4=Low, 0=None)
+  return [...issues.nodes].sort((a, b) => {
+    const pa = a.priority === 0 ? 5 : a.priority;
+    const pb = b.priority === 0 ? 5 : b.priority;
+    return pa - pb;
+  });
 }

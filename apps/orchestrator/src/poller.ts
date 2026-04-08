@@ -84,6 +84,32 @@ async function pollActiveSessionsInner(): Promise<void> {
         ).run({ output: newOutput, id: session.devin_session_id });
       }
 
+      // Check for new PRs on job sessions (notify immediately, don't wait for completion)
+      if (
+        session.session_type === "job" &&
+        devinSession.pull_requests &&
+        devinSession.pull_requests.length > 0
+      ) {
+        const prNotified = db
+          .prepare(
+            "SELECT COUNT(*) as count FROM ledger_events WHERE issue_id = @issueId AND action = 'pr_created'"
+          )
+          .get({ issueId: session.issue_id }) as { count: number };
+
+        if (prNotified.count === 0 && onSessionComplete) {
+          console.log(`[poller] PR detected for ${session.issue_id}, notifying immediately`);
+          await onSessionComplete({
+            devin_session_id: session.devin_session_id,
+            session_type: session.session_type,
+            issue_id: session.issue_id,
+            status: devinSession.status,
+            status_detail: devinSession.status_detail,
+            structured_output: devinSession.structured_output ?? undefined,
+            pull_requests: devinSession.pull_requests,
+          });
+        }
+      }
+
       // Check if session is terminal
       const terminalStatuses = ["exit", "error"];
       const terminalDetails = [

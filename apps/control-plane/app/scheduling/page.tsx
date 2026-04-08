@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Play, Clock, Loader2, Terminal } from "lucide-react";
 
-const SWEEP_INTERVAL_MS = 10 * 60 * 1000;
+const SWEEP_INTERVAL_MS = 30 * 60 * 1000;
 const ORCHESTRATOR_URL = process.env.NEXT_PUBLIC_ORCHESTRATOR_URL ?? "http://localhost:3001";
 
 const SWEEP_BATCH_SIZE = 3;
@@ -150,6 +150,8 @@ export default function SchedulingPage() {
   const triggerSweep = useCallback(async () => {
     setSweepRunning(true);
     setLastResult(null);
+    setLogs([]);
+    seenIds.current.clear();
     setLogPolling(true);
     try {
       const res = await fetch(`${ORCHESTRATOR_URL}/api/sweep`, {
@@ -159,7 +161,6 @@ export default function SchedulingPage() {
       });
       const data = (await res.json()) as SweepResult;
       setLastResult(data);
-      setNextSweepMs(SWEEP_INTERVAL_MS);
     } catch (err) {
       setLastResult({
         status: "error",
@@ -218,7 +219,7 @@ export default function SchedulingPage() {
           <div className="grid grid-cols-2 gap-4 pt-4 border-t border-devin-border">
             <div>
               <span className="text-[12px] text-devin-text-secondary uppercase tracking-wider">Schedule</span>
-              <p className="text-[14px] text-devin-text-primary mt-1 font-mono">Weekdays at 9:00 AM</p>
+              <p className="text-[14px] text-devin-text-primary mt-1 font-mono">Every 30 minutes</p>
             </div>
             <div>
               <span className="text-[12px] text-devin-text-secondary uppercase tracking-wider">Batch size</span>
@@ -226,7 +227,7 @@ export default function SchedulingPage() {
             </div>
             <div>
               <span className="text-[12px] text-devin-text-secondary uppercase tracking-wider">Sort by</span>
-              <p className="text-[14px] text-devin-text-primary mt-1 font-mono">due_date → priority → age</p>
+              <p className="text-[14px] text-devin-text-primary mt-1 font-mono">priority</p>
             </div>
             <div>
               <span className="text-[12px] text-devin-text-secondary uppercase tracking-wider">Source</span>
@@ -235,26 +236,38 @@ export default function SchedulingPage() {
           </div>
         </div>
 
+        {/* Sweep status banner */}
+        {sweepRunning && (
+          <div className="rounded-lg border border-devin-accent/30 bg-devin-accent/10 p-4 mb-6">
+            <div className="flex items-center gap-3 text-[13px]">
+              <Loader2 size={14} className="animate-spin text-devin-accent" />
+              <span className="text-devin-text-primary">
+                Sweep in progress — creating triage sessions for {SWEEP_BATCH_SIZE} issues...
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Sweep result */}
-        {lastResult && (
+        {lastResult && !sweepRunning && (
           <div className="rounded-lg border border-devin-border p-6 mb-6">
             <h2 className="text-[14px] font-medium text-devin-text-primary mb-3">
               Sweep Result
             </h2>
             <div className="space-y-2 text-[13px]">
-              {lastResult.processed.length > 0 && (
+              {lastResult.processed?.length > 0 && (
                 <div className="flex gap-2">
                   <span className="text-emerald-400">Triggered:</span>
                   <span className="text-devin-text-primary">{lastResult.processed.join(", ")}</span>
                 </div>
               )}
-              {lastResult.skipped.length > 0 && (
+              {lastResult.skipped?.length > 0 && (
                 <div className="flex gap-2">
                   <span className="text-devin-text-secondary">Skipped:</span>
                   <span className="text-devin-text-primary">{lastResult.skipped.join(", ")}</span>
                 </div>
               )}
-              {lastResult.errors.length > 0 && (
+              {lastResult.errors?.length > 0 && (
                 <div className="flex gap-2">
                   <span className="text-red-400">Errors:</span>
                   <span className="text-devin-text-primary">

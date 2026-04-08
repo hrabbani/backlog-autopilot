@@ -7,6 +7,7 @@ interface DevinSessionCreateParams {
   repos?: string[];
   session_links?: string[];
   max_acu_limit?: number;
+  create_as_user_id?: string;
 }
 
 interface DevinSessionResponse {
@@ -79,7 +80,11 @@ export class DevinClient {
   async createSession(
     params: DevinSessionCreateParams
   ): Promise<DevinSessionResponse> {
-    return this.request<DevinSessionResponse>("POST", "/sessions", params);
+    const createAsUserId = params.create_as_user_id ?? process.env.DEVIN_CREATE_AS_USER_ID;
+    return this.request<DevinSessionResponse>("POST", "/sessions", {
+      ...params,
+      ...(createAsUserId ? { create_as_user_id: createAsUserId } : {}),
+    });
   }
 
   async getSession(sessionId: string): Promise<DevinSessionResponse> {

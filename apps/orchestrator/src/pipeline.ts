@@ -153,7 +153,7 @@ export async function handleTriageComplete(params: {
 
   logEvent({
     issue_id,
-    issue_title: "",
+    issue_title: issueInfo.title,
     action: "triage_completed",
     path: null,
     confidence: triage.confidence,
@@ -190,7 +190,7 @@ export async function handleTriageComplete(params: {
     case "path_1_autofix":
       logEvent({
         issue_id,
-        issue_title: "",
+        issue_title: issueInfo.title,
         action: "auto_dispatched",
         path: "path_1_autofix",
         confidence: triage.confidence,
@@ -460,19 +460,22 @@ export async function dispatchJob(
     logAction = "Auto-dispatched fix";
   }
 
-  await postMessage({
-    channel: teamChannel,
-    text: headline,
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*${headline}*\n\nComplexity: ${triage.complexity}\n<${session.url}|Follow along as I work on this>`,
+  // Only post channel message for auto-fix (approved/clarification already have thread replies)
+  if (!approvedBy && !clarificationContext) {
+    await postMessage({
+      channel: teamChannel,
+      text: headline,
+      blocks: [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `*${headline}*\n\nComplexity: ${triage.complexity}\n<${session.url}|Follow along as I work on this>`,
+          },
         },
-      },
-    ],
-  });
+      ],
+    });
+  }
 
   await postLogMessage(
     blueprint.notifications.log_channel,
@@ -505,9 +508,21 @@ export async function handleJobComplete(params: {
 
   const prUrl = params.pull_requests?.[0]?.pr_url ?? null;
 
+  // Skip if we already handled this (PR notification fires early, session completion fires later)
+  const alreadyHandled = getDb()
+    .prepare(
+      "SELECT COUNT(*) as count FROM ledger_events WHERE devin_session_id = @sessionId AND action IN ('pr_created', 'job_completed')"
+    )
+    .get({ sessionId: params.devin_session_id }) as { count: number };
+  if (alreadyHandled.count > 0) {
+    console.log(`[pipeline] Job ${params.issue_id} already handled, skipping`);
+    return;
+  }
+
+  const jobIssueInfo = getIssueInfo(params.issue_id);
   logEvent({
     issue_id: params.issue_id,
-    issue_title: "",
+    issue_title: jobIssueInfo.title,
     action: prUrl ? "pr_created" : "job_completed",
     path: "path_1_autofix",
     confidence: null,
@@ -532,9 +547,17 @@ export async function handleJobComplete(params: {
     if (triageEvent?.metadata) {
       const meta = JSON.parse(triageEvent.metadata);
       triageOutput = meta.triage_output;
-      const team = triageOutput?.responsible_team;
-      if (team && blueprint.notifications.pr_channels[team]) {
-        prChannel = blueprint.notifications.pr_channels[team];
+
+      // Check for routing correction — use corrected team if available
+      const correctionEvent = getDb()
+        .prepare(
+          "SELECT responsible_team FROM ledger_events WHERE issue_id = @issueId AND action = 'routing_corrected' ORDER BY timestamp DESC LIMIT 1"
+        )
+        .get({ issueId: params.issue_id }) as { responsible_team: string } | undefined;
+
+      const effectiveTeam = correctionEvent?.responsible_team ?? triageOutput?.responsible_team;
+      if (effectiveTeam && blueprint.notifications.pr_channels[effectiveTeam]) {
+        prChannel = blueprint.notifications.pr_channels[effectiveTeam];
       }
     }
 
